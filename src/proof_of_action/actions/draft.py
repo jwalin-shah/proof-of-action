@@ -7,6 +7,16 @@ Three backends, selected by env:
                                   the Ollama endpoint is operator-controlled.
   (no key, no endpoint)        — deterministic local template fallback
 
+The ollama backend is protocol-compatible with any /api/chat-speaking
+endpoint. Drop-in alternatives for users who want stronger privacy
+guarantees than a commodity API:
+  - Venice.ai (non-logging managed inference)
+  - Near AI (decentralized inference over the NEAR protocol)
+  - vLLM / TGI / LM Studio on your own hardware
+All four fall under the 'remote_ollama_operator_hosted' TCB label when
+the endpoint is non-localhost; override with POA_TCB_LABEL if you want
+to surface the provider name in the action log.
+
 Sensitivity-tagged: the prompt carries private content so every call is
 logged as a private-zone boundary crossing. The target TCB differs by
 backend and is recorded in the action log.
@@ -63,7 +73,17 @@ def _draft_via_ollama(redacted: dict) -> tuple[str, str, str]:
         resp.raise_for_status()
         data = resp.json()
     body = data.get("message", {}).get("content", "").strip()
-    tcb = "akash_gpu_ollama" if "akash" in OLLAMA_URL.lower() else "local_ollama"
+    # TCB label: operator-chosen label wins; else default to local vs remote.
+    # Any non-localhost endpoint is treated as an operator-controlled remote
+    # (Akash, Runpod, their own rented box — same trust model: YOU picked
+    # the provider, not a big AI company).
+    tcb = os.environ.get("POA_TCB_LABEL")
+    if not tcb:
+        u = OLLAMA_URL.lower()
+        if "localhost" in u or "127.0.0.1" in u or "://[::1]" in u:
+            tcb = "local_ollama"
+        else:
+            tcb = "remote_ollama_operator_hosted"
     return body, f"ollama:{OLLAMA_MODEL}", tcb
 
 
@@ -101,11 +121,20 @@ def draft_reply(ctx: PrivateContext) -> PrivateDraft:
         else:
             backend = "template"
 
-    tcb_label = {
-        "ollama": "akash_gpu_ollama" if "akash" in OLLAMA_URL.lower() else "local_ollama",
-        "anthropic": "anthropic_tcb",
-        "template": "no_llm",
-    }.get(backend, "anthropic_tcb")
+    # Initial TCB label (may be refined by the ollama backend below using
+    # POA_TCB_LABEL or localhost detection).
+    if backend == "ollama":
+        u = OLLAMA_URL.lower()
+        tcb_label = os.environ.get("POA_TCB_LABEL") or (
+            "local_ollama"
+            if ("localhost" in u or "127.0.0.1" in u or "://[::1]" in u)
+            else "remote_ollama_operator_hosted"
+        )
+    else:
+        tcb_label = {
+            "anthropic": "anthropic_tcb",
+            "template": "no_llm",
+        }.get(backend, "anthropic_tcb")
 
     private_store.append_action_log(
         action_id,
