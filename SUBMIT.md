@@ -38,13 +38,13 @@ Most hackathon agents dump raw outputs. We built the firewall.
 
 ### How we built it
 
-- **Redis** (two-user ACL firewall, verified with NOPERM — live tested by `doctor.sh`)
-- **Chainguard** (minimal CVE-hardened Python base for the hosted public face)
-- **Insforge** (the full public plane: Postgres with RLS for `proof_actions` / `boundary_crossings` / `guild_sessions`, `finalize-action` and `run-demo` edge functions, Storage bucket, hosted React dashboard at `q7haa32f.insforge.site`, and Auth — one backend doing five jobs)
-- **Guild** (per-run audit sessions, boundary crossings recorded via `guild session send` + mirrored into Insforge Postgres)
-- **Akash** (SDL manifest for self-host deploy; design artifact so anyone can spin up their own instance)
-- **Anthropic Claude** (drafting, documented as inside the reasoning TCB)
-- **Google OAuth** (installed-app flow for Gmail read; `gmail.readonly` restricted scope, refresh token local-only)
+- **Redis** — three layers of defense on the private keyspace: (1) two-user ACL firewall (NOPERM verified live by `doctor.sh`), (2) mTLS with a pinned local CA and client certs (`deploy/redis-tls.conf`, tls-auth-clients on), (3) AES-GCM envelope encryption on every value with the Redis key bound as AAD — a `.rdb` dump yields only ciphertext. An attacker needs the password *and* the client cert *and* the master key.
+- **Chainguard** — minimal CVE-hardened Python base, **pinned by sha256 digest** (`.chainguard-digest`), scanned in CI with grype (High/Critical fails the build), and signed with cosign keyless via Sigstore / GitHub OIDC. The exact digest and `cosign verify` command land in `cited.md`'s Provenance block so any reader can verify supply-chain integrity externally. `scripts/pin-chainguard.sh` refreshes pins via registry API (no docker/crane needed).
+- **Insforge** — the full public plane: Postgres with RLS for `proof_actions` / `boundary_crossings` / `guild_sessions`, `finalize-action` and `run-demo` edge functions, Storage bucket, hosted React dashboard with **live Realtime subscriptions** on `boundary:user:<uid>` (per-user channel, not global), **`insforge.emails.send` notifications** on human-review handoff (topic label only — no private content crosses), and Auth. One backend doing six jobs.
+- **Guild** — per-run audit sessions that carry the actual boundary metrics (topic label, field counts, leak-check flag, content-commit hashes) — not just a URL. The session is an independent, externally-inspectable record of what crossed the boundary, with zero private content in the payload. Session URLs embedded in `cited.md`.
+- **Akash** — **live Ollama GPU deployment** (`deploy/akash-ollama-gpu.yaml`), operator-controlled LLM inference that removes Anthropic from the TCB. The agent sends already-redacted prompts to the Akash endpoint; no big AI company sees content. Per-run TCB label (`akash_gpu_ollama` / `local_ollama` / `anthropic_tcb`) lands in the action log so the privacy boundary is machine-readable. We do *not* deploy the private worker to Akash — that would collapse the "private stays on your laptop" thesis.
+- **Anthropic Claude** — backup drafting backend, pluggable via `POA_LLM={anthropic,ollama,template}`. Documented as inside the reasoning TCB when used; fully optional.
+- **Google OAuth** — installed-app flow for Gmail read; `gmail.readonly` restricted scope, refresh token local-only.
 
 ### Challenges
 
