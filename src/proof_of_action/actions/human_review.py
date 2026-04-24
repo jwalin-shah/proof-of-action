@@ -18,13 +18,17 @@ from proof_of_action.boundary import (
     VapiView,
     topic_label_for,
 )
-from proof_of_action.stores import private_store
+from proof_of_action.stores import insforge_publish, private_store
 
 GUILD_ENDPOINT = os.environ.get(
     "GUILD_ENDPOINT", "https://api.guild.ai/v1/workflows/runs"
 )
 GUILD_TOKEN = os.environ.get("GUILD_TOKEN")
 FALLBACK_DIR = Path("artifacts/human_review")
+
+# Optional: InsForge email notification on review handoff. Only the
+# topic_label + action_id travel — both are already public-plane safe.
+REVIEW_NOTIFY_EMAIL = os.environ.get("POA_REVIEW_NOTIFY_EMAIL")
 
 
 def request_review(draft: PrivateDraft, topic_label: str) -> dict:
@@ -60,6 +64,28 @@ def request_review(draft: PrivateDraft, topic_label: str) -> dict:
             "contains_private_body": False,
         },
     )
+
+    # Notify the operator via InsForge email. Only topic_label + action_id
+    # cross the boundary; both are already public-plane safe.
+    if REVIEW_NOTIFY_EMAIL:
+        try:
+            email_result = insforge_publish.send_review_email(
+                REVIEW_NOTIFY_EMAIL, draft.action_id, topic_label
+            )
+            private_store.append_action_log(
+                draft.action_id,
+                {
+                    "step": "review_email_sent",
+                    "sensitivity": "public",
+                    "target": "insforge.emails",
+                    "status": email_result.get("status"),
+                },
+            )
+        except Exception as e:
+            private_store.append_action_log(
+                draft.action_id,
+                {"step": "review_email_error", "error": str(e)[:200]},
+            )
 
     if GUILD_TOKEN:
         try:

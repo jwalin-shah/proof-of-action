@@ -56,6 +56,35 @@ def _token() -> str:
     return _cached_token
 
 
+def send_review_email(to_address: str, action_id: str, topic_label: str) -> dict:
+    """Notify the operator that a draft is queued for human review.
+
+    Carries ONLY the topic_label (already non-revealing) and the action_id
+    hash — never the draft body or private thread content. This is a public
+    -plane projection, same trust level as the OpenhumanView handoff.
+    """
+    resp = httpx.post(
+        f"{BASE_URL}/api/emails/send",
+        headers={"Authorization": f"Bearer {_token()}"},
+        json={
+            "to": to_address,
+            "subject": f"[proof-of-action] draft {action_id} is awaiting your review",
+            "html": (
+                f"<p>An agent run produced a draft queued for your review.</p>"
+                f"<ul>"
+                f"<li><strong>action_id:</strong> <code>{action_id}</code></li>"
+                f"<li><strong>topic:</strong> {topic_label}</li>"
+                f"</ul>"
+                f"<p>Private content stays on your machine. This email contains "
+                f"only the redacted topic label and action identifier — no "
+                f"thread body, recipient names, or draft contents.</p>"
+            ),
+        },
+        timeout=10,
+    )
+    return {"status": resp.status_code, "body": resp.text[:200]}
+
+
 def publish_to_insforge(
     view: PublicArtifactView,
     *,
