@@ -1,0 +1,47 @@
+[
+  {
+    "thread_id": "t_001",
+    "subject": "Re: Staff SWE role — next steps",
+    "from": "alex.chen@fictional-corp.example",
+    "from_name": "Alex Chen",
+    "last_message_at": "2026-03-01T14:00:00Z",
+    "body": "Hi Jamie — great chatting last week. Let us know when you've had a chance to review the offer terms. We're excited about the possibility of you joining the platform infra team.",
+    "participants": ["jamie@example.com", "alex.chen@fictional-corp.example"]
+  },
+  {
+    "thread_id": "t_002",
+    "subject": "Lunch next week?",
+    "from": "sam@friend.example",
+    "from_name": "Sam Rivera",
+    "last_message_at": "2026-04-20T09:00:00Z",
+    "body": "Hey, are you around next week? Would love to catch up.",
+    "participants": ["jamie@example.com", "sam@friend.example"]
+  },
+  {
+    "thread_id": "t_003",
+    "subject": "Seed round intro — Horizon Capital",
+    "from": "partner@horizon-capital.example",
+    "from_name": "Priya Patel",
+    "last_message_at": "2026-02-14T11:30:00Z",
+    "body": "Jamie, following up on our intro call. Still very interested in learning more about the roadmap. Happy to reconnect when timing works.",
+    "participants": ["jamie@example.com", "partner@horizon-capital.example"]
+  },
+  {
+    "thread_id": "t_004",
+    "subject": "Invoice #4482",
+    "from": "billing@vendor.example",
+    "from_name": "Vendor Billing",
+    "last_message_at": "2026-04-23T08:00:00Z",
+    "body": "Your invoice is attached. Payment due in 30 days.",
+    "participants": ["jamie@example.com", "billing@vendor.example"]
+  },
+  {
+    "thread_id": "t_005",
+    "subject": "Conf talk proposal feedback",
+    "from": "program@devconf.example",
+    "from_name": "DevConf Program Committee",
+    "last_message_at": "2026-01-20T16:45:00Z",
+    "body": "Hi Jamie — we enjoyed your submission and would like to schedule a follow-up. Let us know your availability over the next two weeks.",
+    "participants": ["jamie@example.com", "program@devconf.example"]
+  }
+]

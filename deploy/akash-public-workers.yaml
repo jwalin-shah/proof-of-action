@@ -1,0 +1,62 @@
+---
+# Akash SDL — public-zone workers only.
+# The private zone (agent decisions, private Redis, Anthropic calls carrying
+# private context) NEVER deploys here by design. Only the research and
+# publishing workers — which see only public URLs and already-redacted views —
+# run on decentralized compute.
+version: "2.0"
+
+services:
+  public-research-worker:
+    image: ghcr.io/proof-of-action/public-worker:latest
+    env:
+      - ROLE=public_research
+      - ALLOW_PRIVATE_ACCESS=false
+    expose:
+      - port: 8080
+        as: 80
+        to:
+          - global: true
+
+  public-artifact-server:
+    image: ghcr.io/proof-of-action/artifact-server:latest
+    env:
+      - ROLE=public_artifact
+      - ALLOW_PRIVATE_ACCESS=false
+    expose:
+      - port: 8081
+        as: 81
+        to:
+          - global: true
+
+profiles:
+  compute:
+    public-research-worker:
+      resources:
+        cpu: { units: 0.5 }
+        memory: { size: 512Mi }
+        storage: { size: 1Gi }
+    public-artifact-server:
+      resources:
+        cpu: { units: 0.25 }
+        memory: { size: 256Mi }
+        storage: { size: 1Gi }
+  placement:
+    westcoast:
+      pricing:
+        public-research-worker:
+          denom: uakt
+          amount: 1000
+        public-artifact-server:
+          denom: uakt
+          amount: 500
+
+deployment:
+  public-research-worker:
+    westcoast:
+      profile: public-research-worker
+      count: 2
+  public-artifact-server:
+    westcoast:
+      profile: public-artifact-server
+      count: 1
