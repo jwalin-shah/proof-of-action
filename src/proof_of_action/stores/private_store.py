@@ -54,12 +54,35 @@ def client() -> redis.Redis:
     return redis.Redis(**kwargs)
 
 
+def _derivation_id_for(key: str) -> str | None:
+    """Extract the natural isolation id from a private:* Redis key.
+
+    H4: each unit of private data (thread, draft, action log) gets its own
+    HKDF-derived key scoped by the id embedded in the Redis key. Leaking
+    the key for action X cannot decrypt action Y.
+
+        private:thread:<thread_id>      → thread_id
+        private:draft:<action_id>       → action_id
+        private:action_log:<action_id>  → action_id
+    """
+    parts = key.split(":", 2)
+    if len(parts) == 3 and parts[0] == "private":
+        return parts[2]
+    return None
+
+
 def _wrap_value(key: str, plaintext: str) -> bytes:
     if not ENVELOPE_ENABLED:
         return plaintext.encode()
     # AAD binds the ciphertext to the Redis key so swapping envelopes
-    # between keys fails GCM auth.
-    return crypto.encrypt_with_master(plaintext.encode(), aad=key.encode())
+    # between keys fails GCM auth. H4: prefer per-id HKDF-derived key;
+    # fall back to master for values without a clean id in their key.
+    derivation_id = _derivation_id_for(key)
+    pt = plaintext.encode()
+    aad = key.encode()
+    if derivation_id:
+        return crypto.encrypt_derived(derivation_id, pt, aad=aad)
+    return crypto.encrypt_with_master(pt, aad=aad)
 
 
 def _unwrap_value(key: str, stored: bytes | None) -> str | None:
@@ -67,11 +90,20 @@ def _unwrap_value(key: str, stored: bytes | None) -> str | None:
         return None
     if not ENVELOPE_ENABLED:
         return stored.decode()
-    # Backward-compat: if the stored value starts with '{' it's legacy
-    # plaintext JSON from before G7 landed. Decrypt otherwise.
+    # Legacy: pre-G7 values start with '{' (JSON). Decrypt otherwise, routing
+    # on the envelope version byte: 0x01 master, 0x02 derived (H4).
     if stored[:1] == b"{":
         return stored.decode()
-    return crypto.decrypt_with_master(stored, aad=key.encode()).decode()
+    aad = key.encode()
+    version = crypto.envelope_version(stored)
+    if version == crypto.VERSION_DERIVED:
+        derivation_id = _derivation_id_for(key)
+        if not derivation_id:
+            raise crypto.EnvelopeCorrupt(
+                f"derived envelope needs id but key has no id shape: {key}"
+            )
+        return crypto.decrypt_derived(derivation_id, stored, aad=aad).decode()
+    return crypto.decrypt_with_master(stored, aad=aad).decode()
 
 
 def save_thread(ctx: PrivateContext) -> None:

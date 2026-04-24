@@ -32,6 +32,25 @@ jobs:
             || { echo "::error::Dockerfile builder digest drifted from .chainguard-digest"; exit 1; }
           echo "✓ pins consistent"
 
+      - name: Install cosign (for upstream verification)
+        uses: sigstore/cosign-installer@v3
+
+      - name: Verify Chainguard's own signature on pinned bases
+        run: |
+          # Chainguard signs every image they publish via Sigstore keyless.
+          # This proves the bytes at the digest we pinned were actually
+          # built and signed by Chainguard, not swapped by a MITM.
+          RUNTIME=$(awk '$1=="latest"{print $2}' .chainguard-digest)
+          BUILDER=$(awk '$1=="latest-dev"{print $2}' .chainguard-digest)
+          for digest in "$RUNTIME" "$BUILDER"; do
+            cosign verify "cgr.dev/chainguard/python@${digest}" \
+              --certificate-identity-regexp='keyless@chainguard-images\.iam\.gserviceaccount\.com|chainguard-images/images' \
+              --certificate-oidc-issuer-regexp='https://(accounts\.google\.com|token\.actions\.githubusercontent\.com)' \
+              > /dev/null 2>&1 \
+              && echo "✓ upstream signature valid: ${digest}" \
+              || { echo "::error::upstream signature invalid for ${digest}"; exit 1; }
+          done
+
       - name: Build image
         id: build
         uses: docker/build-push-action@v6
