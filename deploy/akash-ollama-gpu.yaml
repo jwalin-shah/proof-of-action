@@ -1,0 +1,87 @@
+---
+# Proof-of-Action — Ollama on Akash GPU.
+#
+# This is the ONLY piece of the system we deploy to decentralized compute.
+# The private worker (Python agent + Redis + envelope keys) stays on the
+# operator's laptop — deploying it off-machine would collapse the privacy
+# thesis. What we run here is an operator-controlled LLM inference endpoint
+# so the agent never has to call Anthropic / OpenAI.
+#
+# Trust chain with this deployed:
+#   operator laptop  →  YOUR Akash Ollama  →  nobody else
+#
+# Usage in Akash Console:
+#   1. "Run Custom Container" → paste this SDL
+#   2. Pick a GPU provider (any NVIDIA RTX/A-series is fine for 8B models)
+#   3. Deploy, accept a bid, wait for lease
+#   4. Grab the public URL (shown in Console → Deployment → Services)
+#   5. Preload the model:
+#        curl -X POST <URL>/api/pull -d '{"name":"llama3.1:8b"}'
+#   6. Point the agent at it:
+#        echo "POA_OLLAMA_URL=https://<your-url>" >> .env.local
+#        echo "POA_LLM=ollama" >> .env.local
+#        ./scripts/demo.sh
+#
+# The action log will tag this run's TCB as 'akash_gpu_ollama' (see
+# src/proof_of_action/actions/draft.py). Anthropic leaves the picture.
+
+version: "2.0"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    expose:
+      - port: 11434
+        as: 80
+        to:
+          - global: true
+        http_options:
+          # Ollama /api/chat streams for long completions; keep timeouts loose.
+          read_timeout: 600000
+          send_timeout: 600000
+    env:
+      # Bind explicitly so external traffic reaches the server.
+      - OLLAMA_HOST=0.0.0.0:11434
+      # Cache models inside the container's ephemeral volume. Preloading via
+      # /api/pull after deploy is faster than baking models into the image.
+      - OLLAMA_MODELS=/root/.ollama/models
+      # Small safety margin so a bad prompt can't starve the GPU forever.
+      - OLLAMA_KEEP_ALIVE=5m
+
+profiles:
+  compute:
+    ollama:
+      resources:
+        cpu:
+          units: 4
+        memory:
+          size: 16Gi
+        storage:
+          - size: 40Gi
+        gpu:
+          units: 1
+          attributes:
+            vendor:
+              nvidia:
+                # Any modern NVIDIA GPU runs llama3.1:8b comfortably. If you
+                # want 70B, request an A100/H100 and bump memory + storage.
+                - model: rtx4090
+                - model: rtx3090
+                - model: a4000
+                - model: a5000
+                - model: a6000
+                - model: a100
+                - model: h100
+  placement:
+    operator-chosen:
+      pricing:
+        ollama:
+          denom: uakt
+          # ~$10/mo range depending on provider + GPU. Tune in Console.
+          amount: 10000
+
+deployment:
+  ollama:
+    operator-chosen:
+      profile: ollama
+      count: 1

@@ -65,8 +65,49 @@ export default function Dashboard({ userId }: { userId: string }) {
 
   useEffect(() => {
     refresh();
+    // Slow poll as a safety net for actions / guild rows (no realtime wired yet).
     const t = setInterval(refresh, POLL_MS);
-    return () => clearInterval(t);
+
+    // Live push: boundary_crossings stream in via the per-user realtime channel
+    // registered by migrations/20260424210000_realtime-boundary.sql. Pattern is
+    // boundary:user:<uid> so the backend can never leak someone else's rows.
+    const channel = `boundary:user:${userId}`;
+    const onCrossing = (msg: { payload?: Crossing; data?: Crossing }) => {
+      const row = msg.payload ?? msg.data;
+      if (!row) return;
+      setCrossings((prev) => {
+        if (prev.some((c) => c.id === row.id)) return prev;
+        return [row, ...prev].slice(0, 50);
+      });
+    };
+
+    let cancelled = false;
+    (async () => {
+      try {
+        await insforge.realtime.connect();
+        if (cancelled) return;
+        const res = await insforge.realtime.subscribe(channel);
+        if (cancelled) return;
+        if (!res.ok) {
+          setError(`realtime subscribe failed: ${res.error ?? 'unknown'}`);
+          return;
+        }
+        insforge.realtime.on('crossing_logged', onCrossing);
+      } catch (e) {
+        setError(`realtime: ${(e as Error).message}`);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+      try {
+        insforge.realtime.off('crossing_logged', onCrossing);
+        insforge.realtime.unsubscribe(channel);
+      } catch {
+        /* best-effort cleanup */
+      }
+    };
   }, [userId]);
 
   const [demoBusy, setDemoBusy] = useState(false);
