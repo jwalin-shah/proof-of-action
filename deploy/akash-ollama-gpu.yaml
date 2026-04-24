@@ -11,19 +11,15 @@
 #   operator laptop  →  YOUR Akash Ollama  →  nobody else
 #
 # Usage in Akash Console:
-#   1. "Run Custom Container" → paste this SDL
-#   2. Pick a GPU provider (any NVIDIA RTX/A-series is fine for 8B models)
-#   3. Deploy, accept a bid, wait for lease
-#   4. Grab the public URL (shown in Console → Deployment → Services)
-#   5. Preload the model:
-#        curl -X POST <URL>/api/pull -d '{"name":"llama3.1:8b"}'
-#   6. Point the agent at it:
-#        echo "POA_OLLAMA_URL=https://<your-url>" >> .env.local
-#        echo "POA_LLM=ollama" >> .env.local
-#        ./scripts/demo.sh
-#
-# The action log will tag this run's TCB as 'akash_gpu_ollama' (see
-# src/proof_of_action/actions/draft.py). Anthropic leaves the picture.
+#   1. "Run Custom Container" → paste / upload this SDL
+#   2. Accept the cheapest bid showing a GPU
+#   3. Grab the public URL from Leases → Services
+#   4. Preload the model:
+#        curl -X POST https://<URL>/api/pull -d '{"name":"llama3.1:8b"}'
+#   5. Point the agent at it via .env.local:
+#        POA_LLM=ollama
+#        POA_OLLAMA_URL=https://<URL>
+#        POA_OLLAMA_MODEL=llama3.1:8b
 
 version: "2.0"
 
@@ -35,17 +31,8 @@ services:
         as: 80
         to:
           - global: true
-        http_options:
-          # Ollama /api/chat streams for long completions; keep timeouts loose.
-          read_timeout: 600000
-          send_timeout: 600000
     env:
-      # Bind explicitly so external traffic reaches the server.
       - OLLAMA_HOST=0.0.0.0:11434
-      # Cache models inside the container's ephemeral volume. Preloading via
-      # /api/pull after deploy is faster than baking models into the image.
-      - OLLAMA_MODELS=/root/.ollama/models
-      # Small safety margin so a bad prompt can't starve the GPU forever.
       - OLLAMA_KEEP_ALIVE=5m
 
 profiles:
@@ -63,8 +50,6 @@ profiles:
           attributes:
             vendor:
               nvidia:
-                # Any modern NVIDIA GPU runs llama3.1:8b comfortably. If you
-                # want 70B, request an A100/H100 and bump memory + storage.
                 - model: rtx4090
                 - model: rtx3090
                 - model: a4000
@@ -73,15 +58,15 @@ profiles:
                 - model: a100
                 - model: h100
   placement:
-    operator-chosen:
+    akash:
       pricing:
         ollama:
           denom: uakt
-          # ~$10/mo range depending on provider + GPU. Tune in Console.
+          # ~$0.25/hr cap. Your $100 credit lasts weeks at this rate.
           amount: 10000
 
 deployment:
   ollama:
-    operator-chosen:
+    akash:
       profile: ollama
       count: 1

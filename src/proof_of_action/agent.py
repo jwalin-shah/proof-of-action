@@ -32,6 +32,16 @@ def load_fixture() -> list[PrivateContext]:
         print(f"[private] fetched {len(ctxs)} Gmail threads (token local)")
         return ctxs
 
+    if SOURCE == "imessage":
+        from proof_of_action.sources import imessage
+        max_threads = int(os.environ.get("POA_IMSG_MAX", "20"))
+        lookback_days = int(os.environ.get("POA_IMSG_LOOKBACK_DAYS", "90"))
+        ctxs = imessage.fetch_threads(
+            max_threads=max_threads, lookback_days=lookback_days
+        )
+        print(f"[private] fetched {len(ctxs)} iMessage chats (chat.db read-only)")
+        return ctxs
+
     raw = json.loads(FIXTURE.read_text())
     out = []
     for row in raw:

@@ -1,7 +1,7 @@
 """The privacy boundary.
 
-Every outbound call — Vapi, openhuman, cited.md, any sponsor — goes through a
-typed projection defined here. Raw PrivateContext never crosses a zone.
+Every outbound call — Guild, openhuman, cited.md, any sponsor — goes through
+a typed projection defined here. Raw PrivateContext never crosses a zone.
 """
 from __future__ import annotations
 
@@ -50,10 +50,10 @@ class PrivateDraft(BaseModel):
 
 
 class VapiView(BaseModel):
-    """What Vapi is allowed to see.
+    """What a Vapi voice agent is allowed to read out loud.
 
     NO body. NO participant emails. NO draft content. Only an opaque topic
-    label and the action_id for callback.
+    label, action_id for callback, and a TTS-safe script.
     """
 
     action_id: str
