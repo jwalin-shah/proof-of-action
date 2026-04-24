@@ -14,6 +14,18 @@ PYTHON="${PYTHON:-$ROOT/.venv/bin/python}"
 REDIS_PORT="${REDIS_PORT:-6390}"
 REDIS_PUB_PW="${REDIS_PUB_PW:-pubpw}"
 
+# Phase G6: when POA_REDIS_TLS=on, all redis-cli probes go over mTLS.
+# Agent process itself picks this up via stores/private_store.py.
+RCLI_TLS=()
+if [[ "${POA_REDIS_TLS:-off}" == "on" ]]; then
+  RCLI_TLS=(
+    --tls
+    --cacert "${POA_REDIS_TLS_CA:-private/tls/ca.crt}"
+    --cert  "${POA_REDIS_TLS_CERT:-private/tls/agent.crt}"
+    --key   "${POA_REDIS_TLS_KEY:-private/tls/agent.key}"
+  )
+fi
+
 export POA_FIXTURE="fixtures/adversarial_threads.json"
 export POA_INSFORGE_URL="${POA_INSFORGE_URL:-https://q7haa32f.us-east.insforge.app}"
 export POA_INSFORGE_EMAIL="${POA_INSFORGE_EMAIL:-demo@proof-of-action.local}"
@@ -94,6 +106,7 @@ if [[ -x "$IFC" ]]; then
 fi
 
 echo
-bold "Dashboard: http://localhost:5173 (sign in as $POA_INSFORGE_EMAIL)"
+bold "Dashboard: https://q7haa32f.insforge.site  (hosted — sign in as $POA_INSFORGE_EMAIL)
+  Local dev:  cd dashboard && npm run dev  →  http://localhost:5173"
 hr
 ok "Demo complete."
