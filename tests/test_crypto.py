@@ -48,7 +48,10 @@ def test_derived_keys_isolate_actions():
         crypto.decrypt_derived("act_bbb", e1)
 
 
-def test_missing_key_raises():
-    os.environ.pop(crypto.MASTER_KEY_ENV, None)
+def test_missing_key_raises(monkeypatch):
+    # H6: master_key() now also reads from macOS Keychain. The "no key
+    # anywhere" assertion needs to disable both sources.
+    monkeypatch.delenv(crypto.MASTER_KEY_ENV, raising=False)
+    monkeypatch.setattr(crypto, "_keychain_fetch", lambda: None)
     with pytest.raises(crypto.MasterKeyMissing):
         crypto.encrypt_with_master(b"x")
