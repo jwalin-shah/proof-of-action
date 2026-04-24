@@ -15,6 +15,7 @@ from proof_of_action.boundary import (
     PublicArtifactView,
     topic_label_for,
 )
+from proof_of_action import guild_audit
 from proof_of_action.stores import private_store, public_store
 
 FIXTURE = Path("fixtures/sample_threads.json")
@@ -60,6 +61,23 @@ def run() -> dict:
 
     label = topic_label_for(picked)
 
+    audit_session = guild_audit.open_audit_session(draft.action_id)
+    if audit_session:
+        print(f"[guild] audit session: {guild_audit.session_url(audit_session)}")
+        guild_audit.record_boundary_crossing(
+            audit_session,
+            {
+                "step": "project_view",
+                "action_id": draft.action_id,
+                "kind": "PublicArtifactView",
+                "thread_hash": picked.content_hash(),
+                "draft_hash": draft.content_hash(),
+                "contains_private_body": False,
+            },
+        )
+    else:
+        print("[guild] audit skipped (CLI unavailable)")
+
     view = PublicArtifactView.project(
         action_id=draft.action_id,
         action_kind="draft_reply",
@@ -69,6 +87,10 @@ def run() -> dict:
         public_urls=[],
         when=datetime.now(timezone.utc),
     )
+    if audit_session:
+        view.public_refs.append(
+            {"kind": "guild_audit_session", "url": guild_audit.session_url(audit_session)}
+        )
     public_store.publish_evidence(view)
     print(f"[boundary] projected to public:evidence:{view.action_id}")
     print(f"[boundary] topic_label (non-revealing): '{label}'")

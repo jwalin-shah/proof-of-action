@@ -24,12 +24,14 @@ oblivious execution, side-channel resistance beyond day-granularity batching.
 
 ## Actions (hashed)
 
-### `act_9b6ac121` — draft_reply — 2026-04-24
+### `act_ab390011` — draft_reply — 2026-04-24
 
 - Status: `pending_review`
 - Private evidence referenced:
   - `inbox_thread` → `sha256:aeecff973b28a3ba2562f81e28f6b231`
-  - `draft` → `sha256:ed2884acbfce81a77a65f744cfdcb9d3`
+  - `draft` → `sha256:895986f3190a5647d5b9dff46093dea6`
+- Public evidence:
+  - https://app.guild.ai/sessions/019dc0fb-c3a3-351a-0000-267e7b49c410
 
 ## Verifiability
 
