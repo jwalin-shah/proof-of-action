@@ -29,7 +29,7 @@ This proves: multi-tenancy via Postgres RLS, boundary audit logging, and
 ### 2. Clone and run against fixtures (3 minutes)
 
 ```bash
-git clone https://github.com/<you>/proof-of-action
+git clone https://github.com/jwalin-shah/proof-of-action
 cd proof-of-action
 bash scripts/onboard.sh      # deps + Redis ACL + InsForge link + smoke test
 bash scripts/doctor.sh       # health check (proves the NOPERM boundary is live)
@@ -52,6 +52,18 @@ bash scripts/doctor.sh       # health check (proves the NOPERM boundary is live)
 It also checks that the master key lives in Keychain (not `.env.local`), the
 mTLS certs are in place if enabled, and that your private LLM endpoint is
 reachable with the model loaded.
+
+**Copy `.env.local.example` to `.env.local` and edit.** Every variable has a
+working default; set only what you want to customise.
+
+**Verify the signed container before pulling** (after CI has finished its
+first run):
+
+```bash
+cosign verify ghcr.io/jwalin-shah/proof-of-action:latest \
+  --certificate-identity-regexp='https://github.com/jwalin-shah/proof-of-action/.*' \
+  --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
+```
 
 ### 3. Swap in your own private LLM (any Ollama-compatible endpoint)
 
