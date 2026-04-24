@@ -27,12 +27,8 @@ def test_public_artifact_contains_no_private_content(monkeypatch):
     picked_id = result.get("picked_thread_id")
     if picked_id:
         try:
-            from proof_of_action.stores.private_store import client
-            r = client()
-            for key in r.scan_iter("private:draft:*"):
-                import json as _json
-                from proof_of_action.boundary import PrivateDraft
-                drafts.append(PrivateDraft.model_validate_json(r.get(key)))
+            from proof_of_action.stores import private_store
+            drafts = private_store.all_drafts()
         except Exception:
             pass
 

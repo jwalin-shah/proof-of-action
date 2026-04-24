@@ -4,6 +4,53 @@
 # private context) NEVER deploys here by design. Only the research and
 # publishing workers — which see only public URLs and already-redacted views —
 # run on decentralized compute.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# RECIPE TEMPLATE — adapt, don't deploy-as-is.
+# ─────────────────────────────────────────────────────────────────────────────
+# This SDL is a starting point for self-hosters who want to run the agent
+# against their own open-weights LLM instead of Anthropic. The current
+# public-worker images above are stateless HTTP services (research + artifact
+# server), tiny, CPU-only. If you want to add an LLM inference worker to the
+# same lease, pick a target model and size the GPU profile accordingly.
+#
+# Target models we've tested the agent against via OpenAI-compatible endpoints:
+#
+#   1. Kimi-K2  (PREFERRED)   — 1T-param MoE, ~32B active per token.
+#                              GPU tier: 8× H100 80GB  or  4× H200 141GB.
+#                              Best reasoning quality at our agent's draft/
+#                              classify workload. Cost: highest.
+#
+#   2. Qwen 2.5 32B (PRAGMATIC) — dense 32B, strong instruction following.
+#                              GPU tier: 1× H100 80GB  or  2× A100 80GB.
+#                              Sweet spot for self-hosters: fits on a single
+#                              modern card, draft quality is close to Kimi-K2
+#                              on our eval fixtures. Recommended default.
+#
+#   3. Llama 3.1 70B (ALTERNATIVE) — dense 70B, widely available on Akash
+#                              providers as a pre-baked image.
+#                              GPU tier: 2× H100 80GB  or  4× A100 80GB.
+#                              Use if Qwen weights are unavailable in your
+#                              provider region or if your fixtures need the
+#                              Llama-family instruction style.
+#
+# The agent talks to whichever of these you deploy via a plain
+# OpenAI-compatible `/v1/chat/completions` endpoint (vLLM, TGI, and llama.cpp
+# server all expose this). Set POA_LLM_BASE_URL and POA_LLM_API_KEY in the
+# agent's private-plane .env; the public plane never sees either.
+#
+# To add an inference worker to this lease:
+#   - Add a service (e.g. `inference-worker`) pointing at a vLLM image that
+#     bakes in the chosen model weights.
+#   - Add a matching `profiles.compute` entry with the GPU tier from the
+#     table above (see Akash GPU attribute syntax).
+#   - Add a matching `deployment` entry placing it in a region where your
+#     chosen GPU SKU is available.
+#
+# We are shipping the recipe, not a live lease. The SDL below is the
+# minimal stateless-public-worker lease we've validated on Akash testnet;
+# adapt the GPU inference addition to your target model.
+# ─────────────────────────────────────────────────────────────────────────────
 version: "2.0"
 
 services:

@@ -12,34 +12,60 @@ from datetime import datetime, timezone
 import redis
 
 from proof_of_action.boundary import PrivateContext, PrivateDraft
+from proof_of_action import crypto
 
 PORT = int(os.environ.get("REDIS_PORT", "6390"))
 PW = os.environ.get("REDIS_PRIVATE_PW", "privpw")
 
+# Phase G7: every private:* value is wrapped with AES-GCM before SET and
+# unwrapped on GET. A .rdb dump or a SHOW-COMMAND leak yields ciphertext.
+# POA_ENVELOPE=off disables it for local dev / migration.
+ENVELOPE_ENABLED = os.environ.get("POA_ENVELOPE", "on").lower() != "off"
+
 
 def client() -> redis.Redis:
+    # decode_responses=False so binary envelope bytes survive round-trip.
+    # Callers that still want text decode explicitly after _unwrap_value.
     return redis.Redis(
         host="localhost",
         port=PORT,
         db=0,
         username="agent_private",
         password=PW,
-        decode_responses=True,
+        decode_responses=False,
     )
+
+
+def _wrap_value(key: str, plaintext: str) -> bytes:
+    if not ENVELOPE_ENABLED:
+        return plaintext.encode()
+    # AAD binds the ciphertext to the Redis key so swapping envelopes
+    # between keys fails GCM auth.
+    return crypto.encrypt_with_master(plaintext.encode(), aad=key.encode())
+
+
+def _unwrap_value(key: str, stored: bytes | None) -> str | None:
+    if stored is None:
+        return None
+    if not ENVELOPE_ENABLED:
+        return stored.decode()
+    # Backward-compat: if the stored value starts with '{' it's legacy
+    # plaintext JSON from before G7 landed. Decrypt otherwise.
+    if stored[:1] == b"{":
+        return stored.decode()
+    return crypto.decrypt_with_master(stored, aad=key.encode()).decode()
 
 
 def save_thread(ctx: PrivateContext) -> None:
     r = client()
-    r.set(
-        f"private:thread:{ctx.thread_id}",
-        ctx.model_dump_json(),
-        ex=60 * 60 * 24,
-    )
+    key = f"private:thread:{ctx.thread_id}"
+    r.set(key, _wrap_value(key, ctx.model_dump_json()), ex=60 * 60 * 24)
 
 
 def load_thread(thread_id: str) -> PrivateContext:
     r = client()
-    data = r.get(f"private:thread:{thread_id}")
+    key = f"private:thread:{thread_id}"
+    data = _unwrap_value(key, r.get(key))
     if not data:
         raise KeyError(thread_id)
     return PrivateContext.model_validate_json(data)
@@ -49,21 +75,38 @@ def all_threads() -> list[PrivateContext]:
     r = client()
     out = []
     for key in r.scan_iter("private:thread:*"):
-        out.append(PrivateContext.model_validate_json(r.get(key)))
+        key_str = key.decode() if isinstance(key, bytes) else key
+        data = _unwrap_value(key_str, r.get(key))
+        if data:
+            out.append(PrivateContext.model_validate_json(data))
     return out
 
 
 def save_draft(draft: PrivateDraft) -> None:
     r = client()
-    r.set(
-        f"private:draft:{draft.action_id}",
-        draft.model_dump_json(),
-        ex=60 * 60 * 24 * 7,
-    )
+    key = f"private:draft:{draft.action_id}"
+    r.set(key, _wrap_value(key, draft.model_dump_json()), ex=60 * 60 * 24 * 7)
+
+
+def all_drafts() -> list[PrivateDraft]:
+    """Load every PrivateDraft in the private keyspace.
+
+    Use this instead of raw r.get/scan_iter in tests and scripts so envelope
+    unwrapping stays centralized.
+    """
+    r = client()
+    out: list[PrivateDraft] = []
+    for key in r.scan_iter("private:draft:*"):
+        key_str = key.decode() if isinstance(key, bytes) else key
+        data = _unwrap_value(key_str, r.get(key))
+        if data:
+            out.append(PrivateDraft.model_validate_json(data))
+    return out
 
 
 def append_action_log(action_id: str, entry: dict) -> None:
     r = client()
+    key = f"private:action_log:{action_id}"
     entry = {**entry, "ts": datetime.now(timezone.utc).isoformat()}
-    r.rpush(f"private:action_log:{action_id}", json.dumps(entry))
-    r.expire(f"private:action_log:{action_id}", 60 * 60 * 24 * 30)
+    r.rpush(key, _wrap_value(key, json.dumps(entry)))
+    r.expire(key, 60 * 60 * 24 * 30)

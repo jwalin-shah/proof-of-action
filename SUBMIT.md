@@ -21,22 +21,30 @@ Most hackathon agents dump raw outputs. We built the firewall.
 
 **What it does.** Reads private context from your inbox (iMessage, Gmail via local FastAPI, JSON dumps). Drafts actions using Claude. Projects the action into a typed public view that cannot, by type, contain private fields. Publishes a redacted `cited.md` with peppered sha256 commitments. Opens a Guild audit session per run for external verification.
 
-**How it enforces the privacy boundary — at three layers:**
+**How it enforces the privacy boundary — at four layers:**
 
-1. **Infrastructure** — Redis two-user ACL. `agent_private` owns `private:*`, `agent_public` owns `public:*`. The public client attempting a private write gets `NOPERM` from Redis itself.
-2. **Type system** — `boundary.py` defines `PrivateContext`, `PrivateDraft` (private side) and `PublicArtifactView`, `OpenhumanView`, `VapiView` (public side). Only typed views cross the boundary.
-3. **External audit** — every boundary crossing is logged to an independent Guild session. You don't have to trust our app logic; you can inspect Guild's immutable record.
+1. **Infrastructure (Redis)** — two-user ACL. `agent_private` owns `private:*`, `agent_public` owns `public:*`. The public client attempting a private write gets `NOPERM` from Redis itself. `scripts/doctor.sh` actually *tries* the cross-zone write and asserts the rejection — live proof, not a static claim.
+2. **Infrastructure (Postgres)** — Insforge RLS. Every `proof_actions` row is owned by `auth.uid()`. Cross-tenant reads impossible at the database layer.
+3. **Type system** — `boundary.py` defines `PrivateContext`, `PrivateDraft` (private side) and `PublicArtifactView`, `OpenhumanView`, `VapiView` (public side). Only typed views cross the boundary.
+4. **External audit** — every boundary crossing is logged to an independent Guild session *and* a `boundary_crossings` row in Postgres. You don't have to trust our app logic; you can inspect both immutable records.
 
 **Tested with a leak detector** that scans 131 PII fingerprints (names ≥3 chars, email local-parts, phones, URLs, 3-grams from bodies) against the public artifact. Fails loud if anything slips through.
 
+### How to verify it works (three layers for judges)
+
+1. **Zero setup** — visit https://q7haa32f.insforge.site → sign up → click "run demo". A synthetic agent run lands in *your* RLS-scoped row, with real boundary-crossing audit attached. No local install.
+2. **Clone + fixtures** — `bash scripts/onboard.sh` runs the full end-to-end flow against sample threads. `scripts/doctor.sh` actively proves the Redis NOPERM boundary. Works on any Mac with Homebrew.
+3. **Full Gmail run** — gated by Google's test-user allowlist for the `gmail.readonly` restricted scope. See demo video for the full real-inbox flow; the refresh token never leaves the operator's Mac.
+
 ### How we built it
 
-- **Redis** (two-user ACL firewall, verified with NOPERM)
+- **Redis** (two-user ACL firewall, verified with NOPERM — live tested by `doctor.sh`)
 - **Chainguard** (minimal CVE-hardened Python base for the hosted public face)
-- **Insforge** (Postgres for structured action records + Storage bucket serving `cited.md` and the live dashboard — trial auto-provisioned via agent API in seconds)
-- **Guild** (per-run audit sessions, boundary crossings recorded via `guild session send`)
+- **Insforge** (the full public plane: Postgres with RLS for `proof_actions` / `boundary_crossings` / `guild_sessions`, `finalize-action` and `run-demo` edge functions, Storage bucket, hosted React dashboard at `q7haa32f.insforge.site`, and Auth — one backend doing five jobs)
+- **Guild** (per-run audit sessions, boundary crossings recorded via `guild session send` + mirrored into Insforge Postgres)
 - **Akash** (SDL manifest for self-host deploy; design artifact so anyone can spin up their own instance)
 - **Anthropic Claude** (drafting, documented as inside the reasoning TCB)
+- **Google OAuth** (installed-app flow for Gmail read; `gmail.readonly` restricted scope, refresh token local-only)
 
 ### Challenges
 

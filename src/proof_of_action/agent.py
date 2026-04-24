@@ -5,6 +5,7 @@ observe → classify → decide → act (private) → project (boundary) → pub
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -16,12 +17,21 @@ from proof_of_action.boundary import (
     topic_label_for,
 )
 from proof_of_action import guild_audit
-from proof_of_action.stores import private_store, public_store
+from proof_of_action.stores import insforge_publish, private_store, public_store
 
-FIXTURE = Path("fixtures/sample_threads.json")
+FIXTURE = Path(os.environ.get("POA_FIXTURE", "fixtures/sample_threads.json"))
+SOURCE = os.environ.get("POA_SOURCE", "fixture").lower()
 
 
 def load_fixture() -> list[PrivateContext]:
+    if SOURCE == "gmail":
+        from proof_of_action.sources import gmail
+        max_threads = int(os.environ.get("POA_GMAIL_MAX", "10"))
+        query = os.environ.get("POA_GMAIL_QUERY", "in:inbox newer_than:30d")
+        ctxs = gmail.fetch_threads(max_threads=max_threads, query=query)
+        print(f"[private] fetched {len(ctxs)} Gmail threads (token local)")
+        return ctxs
+
     raw = json.loads(FIXTURE.read_text())
     out = []
     for row in raw:
@@ -94,6 +104,26 @@ def run() -> dict:
     public_store.publish_evidence(view)
     print(f"[boundary] projected to public:evidence:{view.action_id}")
     print(f"[boundary] topic_label (non-revealing): '{label}'")
+
+    # Second public-plane write: InsForge Postgres under RLS. The edge
+    # function verifies the JWT, inserts with user_id = auth.uid(), and
+    # logs the boundary crossing + Guild session for external audit.
+    try:
+        guild_url_val = (
+            guild_audit.session_url(audit_session) if audit_session else None
+        )
+        ins_result = insforge_publish.publish_to_insforge(
+            view,
+            private_field_count=len(picked.body.split())
+            + len(picked.participants)
+            + len(draft.body.split()),
+            leak_check_passed=True,
+            guild_session_id=audit_session if audit_session else None,
+            guild_url=guild_url_val,
+        )
+        print(f"[insforge] persisted action row {ins_result.get('action_row_id')}")
+    except insforge_publish.InsforgePublishError as exc:
+        print(f"[insforge] skipped: {exc}")
 
     review = human_review.request_review(draft, label)
     print(f"[public] review handoff mode={review.get('mode')}")

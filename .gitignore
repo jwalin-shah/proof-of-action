@@ -2,6 +2,7 @@
 private/
 artifacts/private_*.md
 artifacts/*.log
+artifacts/human_review/
 .env
 *.key
 *.pem
@@ -36,3 +37,10 @@ build/
 .roo
 .trae
 .windsurf
+
+# Per-user Gmail OAuth token — lives on the operator's Mac, never committed.
+.config/
+
+# credentials.json — operator's real GCP OAuth client. Never committed.
+# credentials.example.json is the tracked template.
+credentials.json

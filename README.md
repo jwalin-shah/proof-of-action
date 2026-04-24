@@ -6,9 +6,70 @@
 > cross to the hosted public plane.
 
 Most hackathon agents dump raw outputs. We built the firewall between
-**private reasoning** and **public proof**, enforced at three layers:
-infrastructure (Redis ACL), type system (`boundary.py` projections), and
-independent audit (Guild).
+**private reasoning** and **public proof**, enforced at four layers:
+infrastructure (Redis ACL + Postgres RLS), type system (`boundary.py`
+projections), and independent audit (Guild).
+
+---
+
+## Three ways to verify this works
+
+Live dashboard: **https://q7haa32f.insforge.site**
+
+### 1. Zero setup (30 seconds)
+
+Sign up on the dashboard (email or Google). Click the green **"run demo"** button.
+A synthetic agent run lands in *your* row (owned by your `auth.uid()`). The
+stats counter increments. A `boundary_crossing` appears: `68 private → 3 public,
+leak-check ✓`. A Guild audit URL is attached.
+
+This proves: multi-tenancy via Postgres RLS, boundary audit logging, and
+`leak_check_passed` enforcement — all without a single line of local setup.
+
+### 2. Clone and run against fixtures (3 minutes)
+
+```bash
+git clone https://github.com/<you>/proof-of-action
+cd proof-of-action
+bash scripts/onboard.sh      # deps + Redis ACL + InsForge link + smoke test
+bash scripts/doctor.sh       # health check (proves the NOPERM boundary is live)
+```
+
+`onboard.sh` is interactive and idempotent. It:
+
+1. Installs Python deps via `uv` into `.venv`.
+2. Starts a local Redis on port 6390 with two-user ACL (`agent_private`,
+   `agent_public`) — this is the infra-layer privacy boundary.
+3. Walks you through signing up on the hosted InsForge dashboard (RLS
+   isolates your rows from every other user).
+4. Writes `.env.local` (gitignored).
+5. Runs a smoke test end-to-end: Python → boundary projection → Redis
+   public → InsForge `finalize-action` edge function → Postgres row
+   visible on the dashboard.
+
+`doctor.sh` actually **attempts a cross-zone Redis write** and asserts the
+`NOPERM` rejection — the infra-layer boundary is live, not a static claim.
+
+### 3. Full Gmail run (only if pre-allowlisted)
+
+Gmail OAuth uses the `gmail.readonly` restricted scope. Google blocks this
+for anyone not on our GCP OAuth consent screen's test-user allowlist. If
+you're a judge we've pre-added, run:
+
+```bash
+.venv/bin/python scripts/onboard.py          # Gmail OAuth consent flow
+POA_SOURCE=gmail .venv/bin/python -m proof_of_action.agent
+```
+
+Your refresh token lands at `~/.config/proof-of-action/gmail-token.json`
+(mode 0600, local only) — it never leaves your Mac.
+
+Everyone else: see the demo video below for the full Gmail run on the
+operator's own inbox.
+
+**What stays on your Mac**: iMessage/Gmail content, Redis `private:*` zone,
+LLM drafts, Gmail refresh token. **What crosses to the public plane**: only
+typed `PublicArtifactView` rows — no raw bodies, no emails, no phone numbers.
 
 ---
 
@@ -86,6 +147,13 @@ YOUR MAC (trust root)                 HOSTED PUBLIC FACE               PUBLIC WE
 | **Insforge** | Hosts the public `cited.md` (Storage) and the structured PublicArtifactView rows (Postgres) | The "scoped-out public proof" layer. Live CDN URL judges can hit. Never sees private context. |
 | **Guild.ai** | Independent audit of every boundary crossing | The "don't trust our app logic, trust Guild" layer. External verifiability. |
 | **Akash** | SDL manifest for the hosted public face. Design-for, not-deployed-live — by design, to demonstrate architectural intent without burning 45 min of demo risk. | "One-click deploy to your own Akash instance" = self-host story |
+
+The agent runs against any OpenAI-compatible endpoint, so self-hosters can swap
+Anthropic out for an open-weights model without touching agent code. The
+`deploy/akash-public-workers.yaml` SDL is a recipe template for hosting your
+chosen model on Akash — current target models (Kimi-K2 preferred, Qwen 2.5 32B
+pragmatic, Llama 3.1 70B alternative) and GPU tiers are documented inline. This
+session ships the recipe, not a live lease.
 
 Guild, Insforge, and Akash are **all** downstream of the boundary — they only
 ever receive typed views, never raw private data.
