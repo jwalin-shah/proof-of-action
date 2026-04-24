@@ -49,8 +49,37 @@ bash scripts/doctor.sh       # health check (proves the NOPERM boundary is live)
 
 `doctor.sh` actually **attempts a cross-zone Redis write** and asserts the
 `NOPERM` rejection — the infra-layer boundary is live, not a static claim.
+It also checks that the master key lives in Keychain (not `.env.local`), the
+mTLS certs are in place if enabled, and that your private LLM endpoint is
+reachable with the model loaded.
 
-### 3. Full Gmail run (only if pre-allowlisted)
+### 3. Swap in your own private LLM (any Ollama-compatible endpoint)
+
+The draft step works with any `/api/chat`-speaking server. Default is
+**Ollama on Akash GPU** (deploy SDL in `deploy/akash-ollama-gpu.yaml`).
+Other drop-ins: Venice.ai, Near AI, vLLM, or local Ollama on your laptop.
+
+```bash
+# Example: llama3.1:8b on Akash, pulled once after lease is live
+curl -X POST https://<your-akash-url>/api/pull -d '{"name":"llama3.1:8b"}'
+
+# Point the agent at it
+cat >> .env.local <<EOF
+POA_LLM=ollama
+POA_OLLAMA_URL=https://<your-akash-url>
+POA_OLLAMA_MODEL=llama3.1:8b
+EOF
+
+./scripts/demo.sh
+```
+
+The action log records the exact TCB label per run
+(`remote_ollama_operator_hosted`, `local_ollama`, `anthropic_tcb`, or
+`no_llm`) so the privacy boundary is machine-readable, not a marketing
+claim. We deliberately do **not** ship the private worker itself to
+Akash — moving it off your laptop would collapse the thesis.
+
+### 4. Full Gmail run (only if pre-allowlisted)
 
 Gmail OAuth uses the `gmail.readonly` restricted scope. Google blocks this
 for anyone not on our GCP OAuth consent screen's test-user allowlist. If

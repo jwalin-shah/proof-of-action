@@ -139,6 +139,55 @@ else
   warn "POA_INSFORGE_EMAIL/PASSWORD not set — run scripts/onboard.sh"
 fi
 
+hdr "Master key (H6 — Keychain preferred)"
+if command -v security >/dev/null 2>&1; then
+  if security find-generic-password -s proof-of-action -a master-key -w >/dev/null 2>&1; then
+    ok "master key present in macOS Keychain (service=proof-of-action)"
+    if grep -q '^POA_MASTER_KEY=' .env.local 2>/dev/null; then
+      warn "POA_MASTER_KEY still in .env.local — run scripts/keygen.sh --migrate to clean it up"
+    else
+      ok ".env.local has no POA_MASTER_KEY — Keychain is sole source of truth"
+    fi
+  elif [[ -n "${POA_MASTER_KEY:-}" ]]; then
+    warn "master key in env only — consider: ./scripts/keygen.sh --migrate"
+  else
+    bad "no master key (Keychain or env) — run: ./scripts/keygen.sh --keychain"
+  fi
+else
+  warn "'security' not available (non-macOS); using POA_MASTER_KEY env fallback"
+fi
+
+hdr "Private LLM backend (Akash Ollama / local / fallback)"
+LLM_BACKEND="${POA_LLM:-auto}"
+if [[ "$LLM_BACKEND" == "ollama" || ( "$LLM_BACKEND" == "auto" && -n "${POA_OLLAMA_URL:-}" ) ]]; then
+  URL="${POA_OLLAMA_URL:-}"
+  MODEL="${POA_OLLAMA_MODEL:-llama3.1:8b}"
+  if [[ -z "$URL" ]]; then
+    bad "POA_LLM=ollama but POA_OLLAMA_URL not set"
+  else
+    if curl -sS --max-time 10 "$URL/api/version" | grep -q '"version"'; then
+      ok "Ollama endpoint reachable: $URL"
+      if curl -sS --max-time 10 "$URL/api/tags" | grep -q "\"$MODEL\""; then
+        ok "model $MODEL present on endpoint"
+      else
+        warn "model $MODEL not pulled yet — run: curl -X POST $URL/api/pull -d '{\"name\":\"$MODEL\"}'"
+      fi
+      case "$URL" in
+        *localhost*|*127.0.0.1*|*"::1"*) ok "TCB label → local_ollama (strongest privacy)" ;;
+        *) ok "TCB label → remote_ollama_operator_hosted (operator-chosen provider, no big-AI company)" ;;
+      esac
+    else
+      bad "Ollama endpoint unreachable at $URL"
+    fi
+  fi
+elif [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
+  warn "falling back to Anthropic Claude (TCB includes api.anthropic.com)"
+elif [[ "$LLM_BACKEND" == "template" ]]; then
+  warn "POA_LLM=template — deterministic fallback, no LLM call"
+else
+  warn "no LLM configured — will use local template fallback"
+fi
+
 hdr "summary"
 printf "  %d passed, %d failed\n\n" "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]] && exit 0 || exit 1

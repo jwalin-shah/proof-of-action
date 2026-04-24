@@ -86,13 +86,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push image to GHCR
+      - name: Set up QEMU (for cross-arch build)
+        if: github.event_name == 'push'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Push image to GHCR (multi-arch linux/amd64 + linux/arm64)
         id: push
         if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.sha }}
             ghcr.io/${{ github.repository }}:latest
