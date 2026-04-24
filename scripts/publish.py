@@ -92,6 +92,29 @@ def build_cited_md() -> str:
     lines.append("(`scripts/verify_hash.py <hash>`) to confirm an item exists")
     lines.append("without the item ever being published.")
     lines.append("")
+    lines.append("## Provenance (G2 / G4 — verifiable supply chain)")
+    lines.append("")
+    lines.append("The private-worker image is built from Chainguard bases pinned by")
+    lines.append("sha256 digest and signed with cosign keyless (Sigstore / GitHub OIDC).")
+    lines.append("")
+    digest_path = Path(".chainguard-digest")
+    if digest_path.exists():
+        for line in digest_path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split()
+            if len(parts) >= 2:
+                lines.append(f"- `{parts[0]}` → `{parts[1]}`")
+    lines.append("")
+    lines.append("Verify the published image signature yourself:")
+    lines.append("")
+    lines.append("```")
+    lines.append("cosign verify ghcr.io/<owner>/proof-of-action:latest \\")
+    lines.append("  --certificate-identity-regexp='https://github.com/<owner>/proof-of-action/.*' \\")
+    lines.append("  --certificate-oidc-issuer='https://token.actions.githubusercontent.com'")
+    lines.append("```")
+    lines.append("")
     lines.append("## Infrastructure")
     lines.append("")
     lines.append("- **Redis** (two-user ACL): enforces the private/public keyspace split at the infra layer.")

@@ -1,0 +1,8 @@
+# Proof-of-Action — Chainguard base image pins (Phase G2).
+# Refreshed by scripts/pin-chainguard.sh. Read by the provenance block in
+# cited.md so judges can verify the exact bytes we built against.
+#
+# Format: <tag> <sha256 digest>  (last-refreshed ISO-8601)
+latest     sha256:18a4fbda8c280978b6aa5329f7acd4dbb106876e76fdc87913855ebf4876f2ff
+latest-dev sha256:2c0fbbac86b72ebb4bfee15b64d8cd5fd6b49dfe7bb279b5c9f193198a84c1c9
+last-refreshed 2026-04-24T21:10:23Z

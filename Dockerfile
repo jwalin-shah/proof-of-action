@@ -1,11 +1,11 @@
 # Chainguard: minimal, CVE-hardened Python base.
 # The private zone runs here — smallest possible attack surface.
 #
-# Phase G1: multi-stage fixed (builder installs into a venv that the final
-# stage copies). Phase G2 will pin these to @sha256:... digests via
-# .chainguard-digest.
-ARG BUILDER_BASE=cgr.dev/chainguard/python:latest-dev
-ARG RUNTIME_BASE=cgr.dev/chainguard/python:latest
+# Phase G1: multi-stage (builder venv copied into runtime stage).
+# Phase G2: bases pinned by digest. Mirrored in .chainguard-digest so CI and
+# cited.md can cite the exact image hash. Refresh with scripts/pin-chainguard.sh.
+ARG BUILDER_BASE=cgr.dev/chainguard/python:latest-dev@sha256:2c0fbbac86b72ebb4bfee15b64d8cd5fd6b49dfe7bb279b5c9f193198a84c1c9
+ARG RUNTIME_BASE=cgr.dev/chainguard/python:latest@sha256:18a4fbda8c280978b6aa5329f7acd4dbb106876e76fdc87913855ebf4876f2ff
 
 # ─── builder ────────────────────────────────────────────────────────────
 FROM ${BUILDER_BASE} AS builder

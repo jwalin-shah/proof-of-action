@@ -1,0 +1,100 @@
+name: Supply chain
+# G3 + G4: build the private-worker image, scan it with grype, sign it with
+# cosign keyless (GitHub OIDC). The resulting digest + signature ref is
+# cited in cited.md's Provenance block so any reader can verify externally.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write   # cosign keyless needs this for Sigstore Fulcio
+
+jobs:
+  build-scan-sign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Verify Chainguard base digests match .chainguard-digest
+        run: |
+          grep -q "$(awk '$1=="latest"{print $2}' .chainguard-digest)" Dockerfile \
+            || { echo "::error::Dockerfile runtime digest drifted from .chainguard-digest"; exit 1; }
+          grep -q "$(awk '$1=="latest-dev"{print $2}' .chainguard-digest)" Dockerfile \
+            || { echo "::error::Dockerfile builder digest drifted from .chainguard-digest"; exit 1; }
+          echo "✓ pins consistent"
+
+      - name: Build image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: proof-of-action:ci
+          outputs: type=docker,dest=/tmp/poa-image.tar
+
+      - name: Load image for scan
+        run: docker load -i /tmp/poa-image.tar
+
+      - name: grype — block High / Critical CVEs
+        uses: anchore/scan-action@v4
+        with:
+          image: proof-of-action:ci
+          severity-cutoff: high
+          fail-build: true
+          output-format: sarif
+          output-file: grype-report.sarif
+
+      - name: Upload grype SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: grype-report.sarif
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image to GHCR
+        id: push
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:latest
+
+      - name: Install cosign
+        if: github.event_name == 'push'
+        uses: sigstore/cosign-installer@v3
+
+      - name: cosign sign (keyless) + attest SBOM
+        if: github.event_name == 'push'
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}@${{ steps.push.outputs.digest }}
+        run: |
+          cosign sign --yes "$IMAGE"
+          # Attach an SPDX SBOM attestation so downstream auditors can verify
+          # exactly what packages shipped.
+          docker sbom proof-of-action:ci -o spdx-json > sbom.spdx.json || true
+          if [[ -s sbom.spdx.json ]]; then
+            cosign attest --yes --predicate sbom.spdx.json --type spdx "$IMAGE"
+          fi
+          echo "✓ signed: $IMAGE"
+          echo "verify with: cosign verify $IMAGE \\"
+          echo "   --certificate-identity-regexp='https://github.com/${{ github.repository }}/.github/workflows/.*' \\"
+          echo "   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'"
