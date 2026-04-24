@@ -22,11 +22,20 @@ PW = os.environ.get("REDIS_PRIVATE_PW", "privpw")
 # POA_ENVELOPE=off disables it for local dev / migration.
 ENVELOPE_ENABLED = os.environ.get("POA_ENVELOPE", "on").lower() != "off"
 
+# Phase G6: mTLS to Redis. When POA_REDIS_TLS=on, the client presents
+# private/tls/agent.{crt,key} and pins private/tls/ca.crt. Paired with the
+# ACL password, a leaked .env alone still can't reach private:* — you also
+# need the agent client cert off the operator's disk.
+TLS_ENABLED = os.environ.get("POA_REDIS_TLS", "off").lower() == "on"
+TLS_CA = os.environ.get("POA_REDIS_TLS_CA", "private/tls/ca.crt")
+TLS_CERT = os.environ.get("POA_REDIS_TLS_CERT", "private/tls/agent.crt")
+TLS_KEY = os.environ.get("POA_REDIS_TLS_KEY", "private/tls/agent.key")
+
 
 def client() -> redis.Redis:
     # decode_responses=False so binary envelope bytes survive round-trip.
     # Callers that still want text decode explicitly after _unwrap_value.
-    return redis.Redis(
+    kwargs = dict(
         host="localhost",
         port=PORT,
         db=0,
@@ -34,6 +43,15 @@ def client() -> redis.Redis:
         password=PW,
         decode_responses=False,
     )
+    if TLS_ENABLED:
+        kwargs.update(
+            ssl=True,
+            ssl_ca_certs=TLS_CA,
+            ssl_certfile=TLS_CERT,
+            ssl_keyfile=TLS_KEY,
+            ssl_cert_reqs="required",
+        )
+    return redis.Redis(**kwargs)
 
 
 def _wrap_value(key: str, plaintext: str) -> bytes:

@@ -83,6 +83,13 @@ We are careful about what we claim. Two honest boundaries:
   /public plane except through typed projections defined in `boundary.py`.
 - Redis ACL rejects cross-zone writes at the infra layer — the public
   client gets `NOPERM` from Redis itself if it tries to touch `private:*`.
+- Redis connections are mTLS (G6): the private worker presents a client
+  cert pinned to a local CA. A leaked password alone can't open a
+  socket — the attacker also needs `private/tls/agent.key` off the
+  operator's disk. Bootstrap with `./scripts/tls-bootstrap.sh`, start
+  with `redis-server deploy/redis-tls.conf`, enable via `POA_REDIS_TLS=on`.
+- Every `private:*` value is AES-GCM wrapped (G7) with the Redis key
+  bound as AAD; a `.rdb` dump yields only ciphertext.
 - The public artifact (`cited.md`) contains zero substrings of private
   fields — enforced by a leak test scanning names, emails, phone numbers,
   URLs, and multi-word body phrases.

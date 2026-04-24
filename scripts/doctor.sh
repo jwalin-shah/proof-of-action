@@ -64,6 +64,38 @@ else
   bad "Redis not running on :$PORT — run: redis-server --port $PORT --daemonize yes"
 fi
 
+hdr "Redis TLS (G6 — mTLS between agent and private store)"
+if [[ "${POA_REDIS_TLS:-off}" != "on" ]]; then
+  warn "POA_REDIS_TLS=off — running in plaintext mode (demo fallback)"
+  warn "enable: ./scripts/tls-bootstrap.sh && redis-server deploy/redis-tls.conf && export POA_REDIS_TLS=on"
+else
+  CA="${POA_REDIS_TLS_CA:-private/tls/ca.crt}"
+  CERT="${POA_REDIS_TLS_CERT:-private/tls/agent.crt}"
+  KEY="${POA_REDIS_TLS_KEY:-private/tls/agent.key}"
+  if [[ -f "$CA" && -f "$CERT" && -f "$KEY" ]]; then
+    ok "TLS material present (ca + agent cert + key)"
+    KEY_PERM="$(stat -f '%Lp' "$KEY" 2>/dev/null || stat -c '%a' "$KEY" 2>/dev/null)"
+    [[ "$KEY_PERM" == "600" ]] && ok "agent.key chmod 600" || bad "agent.key is $KEY_PERM (want 600)"
+
+    if redis-cli -p "$PORT" --tls --cacert "$CA" --cert "$CERT" --key "$KEY" \
+        --user agent_private -a "$PRIV_PW" --no-auth-warning PING 2>&1 | grep -q PONG; then
+      ok "TLS handshake + ACL auth succeeded"
+    else
+      bad "TLS ping failed — is redis-server running with deploy/redis-tls.conf?"
+    fi
+
+    # mTLS proof: without the client cert, connection must be refused.
+    if redis-cli -p "$PORT" --tls --cacert "$CA" \
+        --user agent_private -a "$PRIV_PW" --no-auth-warning PING 2>&1 | grep -qiE "error|refused|handshake"; then
+      ok "TLS rejects clients without agent.crt (mTLS enforced)"
+    else
+      bad "cert-less client was NOT rejected — tls-auth-clients misconfigured"
+    fi
+  else
+    bad "TLS enabled but material missing — run: ./scripts/tls-bootstrap.sh"
+  fi
+fi
+
 hdr "InsForge public plane"
 URL="${POA_INSFORGE_URL:-https://q7haa32f.us-east.insforge.app}"
 # Reachability = any HTTP response (not a connection error). The root
