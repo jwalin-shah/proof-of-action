@@ -484,3 +484,17 @@ Honest about the ceiling of Phase I:
 Phase I is the "math, not trust" layer for **the boundary** — not for the
 reasoning. That's the right scope. The boundary is the claim we make; the
 boundary is what we should be willing to prove.
+
+---
+
+## Post-submission quick wins (non-Phase-I, small)
+
+- **Semantic cache via Redis vector sets.** Embed each `PrivateContext` thread
+  (locally — Ollama embeddings or sentence-transformers) and store in a Redis
+  vector index on the private side. On new runs, if cosine similarity to a
+  prior thread is above threshold, reuse the prior `PrivateDraft` and skip
+  the LLM round-trip. Saves tokens and latency on recurring threads (the same
+  landlord email, recurring standups, etc.). Requires: redis-stack (vector
+  search module) instead of vanilla Redis, local embedding model, cache-key
+  design that respects the ACL (cache lives entirely in `private:*`). Est.
+  60–90 min once the working pipeline is frozen.

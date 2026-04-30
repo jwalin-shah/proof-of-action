@@ -48,7 +48,7 @@ def main() -> int:
 
     banner("5. leak test — scan cited.md for any private field")
     r = subprocess.run(
-        ["python", "-m", "pytest", "tests/test_boundary.py", "-v", "--no-header"],
+        [sys.executable, "-m", "pytest", "tests/test_boundary.py", "-v", "--no-header"],
         cwd=ROOT,
     )
 

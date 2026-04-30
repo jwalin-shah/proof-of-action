@@ -24,14 +24,14 @@ oblivious execution, side-channel resistance beyond day-granularity batching.
 
 ## Actions (hashed)
 
-### `act_ab390011` — draft_reply — 2026-04-24
+### `act_d37d00d8` — draft_reply — 2026-04-24
 
 - Status: `pending_review`
 - Private evidence referenced:
   - `inbox_thread` → `sha256:aeecff973b28a3ba2562f81e28f6b231`
-  - `draft` → `sha256:895986f3190a5647d5b9dff46093dea6`
+  - `draft` → `sha256:200a583ab0535d591191ba2df65e2867`
 - Public evidence:
-  - https://app.guild.ai/sessions/019dc0fb-c3a3-351a-0000-267e7b49c410
+  - https://app.guild.ai/sessions/019dc192-23cb-351a-0000-55a56ed0c094
 
 ## Verifiability
 
@@ -39,6 +39,23 @@ Each sha256 hash commits to a private item held only on the
 operator's machine. A reviewer can request a local verification
 (`scripts/verify_hash.py <hash>`) to confirm an item exists
 without the item ever being published.
+
+## Provenance (G2 / G4 — verifiable supply chain)
+
+The private-worker image is built from Chainguard bases pinned by
+sha256 digest and signed with cosign keyless (Sigstore / GitHub OIDC).
+
+- `latest` → `sha256:18a4fbda8c280978b6aa5329f7acd4dbb106876e76fdc87913855ebf4876f2ff`
+- `latest-dev` → `sha256:2c0fbbac86b72ebb4bfee15b64d8cd5fd6b49dfe7bb279b5c9f193198a84c1c9`
+- `last-refreshed` → `2026-04-24T21:10:23Z`
+
+Verify the published image signature yourself:
+
+```
+cosign verify ghcr.io/<owner>/proof-of-action:latest \
+  --certificate-identity-regexp='https://github.com/<owner>/proof-of-action/.*' \
+  --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
+```
 
 ## Infrastructure
 

@@ -154,7 +154,7 @@ def upload_to_insforge(md: str, views: list) -> dict:
             f"{INSFORGE_URL}/api/database/records/{INSFORGE_TABLE}",
             json=rows,
             headers={
-                "Authorization": f"Bearer {INSFORGE_KEY}",
+                "x-api-key": INSFORGE_KEY,
                 "Content-Type": "application/json",
                 "Prefer": "return=representation",
             },

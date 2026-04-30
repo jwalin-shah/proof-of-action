@@ -69,8 +69,7 @@ Most hackathon agents dump raw outputs. We built the firewall.
 ### What's next
 
 - Split the agent into two OS processes so private and public Redis credentials never coexist in one memory space.
-- Local LLM (Ollama) so Anthropic leaves the TCB entirely.
-- Signed attestations of the Chainguard container.
+- Semantic cache (Redis vector sets) for repeated thread embeddings — skip the LLM call when the same context recurs.
 - Full OpenHuman-cloud: one-click deploy from the GitHub repo via Akash VCS.
 
 ### Built With
