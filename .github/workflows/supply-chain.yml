@@ -71,6 +71,7 @@ jobs:
           image: proof-of-action:ci
           severity-cutoff: high
           fail-build: true
+          only-fixed: true
           output-format: sarif
 
       - name: Upload grype SARIF
