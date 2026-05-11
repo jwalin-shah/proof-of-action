@@ -59,6 +59,34 @@ git diff --check
 
 Result: passed.
 
+GitHub PR CI after first push:
+
+- `Privacy boundary, leak, ACL, and Python lint`: passed.
+- `Canonical dashboard lint and build`: passed.
+- Existing `build-scan-sign`: failed on Grype high-or-critical CVE threshold.
+
+Follow-up in this branch:
+
+```bash
+bash scripts/pin-chainguard.sh
+```
+
+Result: refreshed Chainguard `latest` and `latest-dev` base image digests in
+`Dockerfile` and `.chainguard-digest`.
+
+```bash
+RUNTIME=$(awk '$1=="latest"{print $2}' .chainguard-digest)
+BUILDER=$(awk '$1=="latest-dev"{print $2}' .chainguard-digest)
+grep -q "$RUNTIME" Dockerfile
+grep -q "$BUILDER" Dockerfile
+```
+
+Result: passed.
+
+Local Docker validation was not available because `docker` is not installed in
+this environment; GitHub CI will rerun the image build and Grype scan after
+push.
+
 ## Handoff
 
 Pending PR.
