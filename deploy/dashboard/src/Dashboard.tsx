@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { insforge } from './insforge'
 
 type Action = {
@@ -32,9 +32,9 @@ export default function Dashboard({ user }: { user: { id: string; email: string 
   const [guilds, setGuilds] = useState<Record<string, string>>({})
   const [liveCount, setLiveCount] = useState(0)
   const [rtStatus, setRtStatus] = useState<'off' | 'connecting' | 'live'>('off')
-  const flashRef = useRef<string | null>(null)
+  const [flashedActionId, setFlashedActionId] = useState<string | null>(null)
 
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     const [aRes, cRes, gRes] = await Promise.all([
       insforge.database
         .from('proof_actions')
@@ -57,11 +57,11 @@ export default function Dashboard({ user }: { user: { id: string; email: string 
       }
       setGuilds(map)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    loadAll()
-  }, [])
+    void Promise.resolve().then(loadAll)
+  }, [loadAll])
 
   useEffect(() => {
     let mounted = true
@@ -74,10 +74,10 @@ export default function Dashboard({ user }: { user: { id: string; email: string 
         const { ok } = await insforge.realtime.subscribe(channel)
         if (!ok || !mounted) return
         setRtStatus('live')
-        insforge.realtime.on('crossing_logged', (payload: any) => {
+        insforge.realtime.on('crossing_logged', (payload: unknown) => {
           setLiveCount((n) => n + 1)
-          flashRef.current = payload?.action_id ?? null
-          loadAll()
+          setFlashedActionId(actionIdFromPayload(payload))
+          void loadAll()
         })
       } catch {
         setRtStatus('off')
@@ -89,7 +89,7 @@ export default function Dashboard({ user }: { user: { id: string; email: string 
       mounted = false
       insforge.realtime.unsubscribe(channel)
     }
-  }, [user.id])
+  }, [loadAll, user.id])
 
   const passFail = crossings.every((c) => c.leak_check_passed)
 
@@ -126,7 +126,7 @@ export default function Dashboard({ user }: { user: { id: string; email: string 
             </div>
           )}
           {actions.map((a) => {
-            const fresh = flashRef.current === a.action_id
+            const fresh = flashedActionId === a.action_id
             return (
               <div
                 key={a.id}
@@ -196,6 +196,14 @@ export default function Dashboard({ user }: { user: { id: string; email: string 
       </section>
     </div>
   )
+}
+
+function actionIdFromPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object' || !('action_id' in payload)) {
+    return null
+  }
+  const actionId = (payload as { action_id?: unknown }).action_id
+  return typeof actionId === 'string' ? actionId : null
 }
 
 function Stat({

@@ -15,7 +15,6 @@ Everything stays local: there is no network call at any point.
 """
 from __future__ import annotations
 
-import os
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path

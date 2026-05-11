@@ -16,7 +16,6 @@ from proof_of_action.boundary import (
     OpenhumanView,
     PrivateDraft,
     VapiView,
-    topic_label_for,
 )
 from proof_of_action.stores import insforge_publish, private_store
 

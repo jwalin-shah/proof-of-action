@@ -7,7 +7,6 @@ PrivateContext for the agent. The token and raw message contents stay local.
 from __future__ import annotations
 
 import base64
-import email
 import re
 from datetime import datetime, timezone
 from email.utils import getaddresses, parseaddr, parsedate_to_datetime
