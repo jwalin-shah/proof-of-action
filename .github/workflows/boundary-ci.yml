@@ -1,0 +1,72 @@
+name: Boundary CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  privacy-boundary:
+    name: Privacy boundary, leak, ACL, and Python lint
+    runs-on: ubuntu-latest
+    env:
+      REDIS_PORT: "6390"
+      POA_LLM: template
+      POA_MASTER_KEY: "1111111111111111111111111111111111111111111111111111111111111111"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install and start Redis ACL boundary
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y redis-server redis-tools
+          redis-server --port "$REDIS_PORT" --daemonize yes --save "" --appendonly no
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            redis-cli -p "$REDIS_PORT" ping && break
+            sleep 1
+          done
+          bash scripts/setup_redis.sh
+
+      - name: Lint Python
+        run: uv run --python 3.11 --extra dev ruff check .
+
+      - name: Run privacy boundary, leak, ACL, and crypto tests
+        run: uv run --python 3.11 --extra dev pytest tests/test_boundary.py tests/test_crypto.py -q
+
+  canonical-dashboard:
+    name: Canonical dashboard lint and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: deploy/dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: deploy/dashboard/package-lock.json
+
+      - name: Install dashboard dependencies
+        run: npm ci
+
+      - name: Lint canonical dashboard
+        run: npm run lint
+
+      - name: Build canonical dashboard
+        run: npm run build

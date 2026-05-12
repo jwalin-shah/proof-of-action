@@ -1,8 +1,6 @@
 """Envelope tests — ciphertext round-trip, tamper-detection, AAD binding."""
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from proof_of_action import crypto

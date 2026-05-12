@@ -49,7 +49,7 @@ def main(path: str) -> int:
         private_store.save_thread(ctx)
         print(f"[private] ingested {ctx.thread_id} ({ctx.content_hash()})")
     print(f"[private] total {len(rows)} threads in private:thread:*")
-    print(f"[ingest] source stays local — no data crossed the boundary")
+    print("[ingest] source stays local — no data crossed the boundary")
     return 0
 
 

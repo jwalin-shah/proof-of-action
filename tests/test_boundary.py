@@ -9,7 +9,6 @@ from pathlib import Path
 
 from proof_of_action import agent
 from proof_of_action.redaction import private_fingerprints, scan_for_leaks
-from proof_of_action.stores import private_store
 
 
 CITED = Path("artifacts/cited.md")

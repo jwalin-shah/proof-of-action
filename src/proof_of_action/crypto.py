@@ -92,7 +92,7 @@ def master_key() -> bytes:
     try:
         key = bytes.fromhex(raw)
     except ValueError as exc:
-        raise MasterKeyMissing(f"master key is not valid hex") from exc
+        raise MasterKeyMissing("master key is not valid hex") from exc
     if len(key) != KEY_LEN:
         raise MasterKeyMissing(
             f"master key must be {KEY_LEN} bytes ({KEY_LEN*2} hex chars)"
