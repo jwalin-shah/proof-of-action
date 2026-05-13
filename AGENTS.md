@@ -21,6 +21,32 @@ external systems.
   public dashboards are public-plane consumers. Treat them as able to receive
   typed projections only.
 
+## Module Map
+
+- `src/proof_of_action/boundary.py` is the type boundary. Change it when a
+  public view shape, allowed field set, target plane, verifier policy, topic
+  minimization rule, or peppered hash rule changes.
+- `src/proof_of_action/redaction.py` is the leak-test scanner. Change it when
+  private fingerprints or public-artifact leak detection rules change.
+- `src/proof_of_action/agent.py` owns the local action loop:
+  observe, classify, draft, project, publish, and action-log recording.
+- `src/proof_of_action/actions/` owns private-plane action generation and
+  human-review handoff logic. These modules may consume private drafts but must
+  only send registered public views downstream.
+- `src/proof_of_action/sources/` owns private-plane input adapters. Source
+  modules should return `PrivateContext` and should not publish or audit.
+- `src/proof_of_action/stores/private_store.py` owns `private:*` Redis access,
+  encryption-at-rest behavior, and private Redis TLS settings.
+- `src/proof_of_action/stores/public_store.py` owns `public:*` Redis access and
+  public cited-artifact serialization.
+- `src/proof_of_action/stores/insforge_publish.py` owns hosted public-plane
+  publication to Insforge rows and storage.
+- `scripts/doctor.sh`, `scripts/demo.sh`, and `scripts/onboard.sh` are
+  service-backed validation and demo entrypoints. Prefer local pytest commands
+  for docs, type-contract, and crypto changes unless live behavior changed.
+- `deploy/dashboard/` is the canonical hosted dashboard checked by CI.
+  `dashboard/` is a legacy/local prototype unless README and CI say otherwise.
+
 ## Work Rules
 
 - Keep privacy-boundary changes close to `boundary.py`, `redaction.py`,
