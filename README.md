@@ -110,7 +110,8 @@ operator's own inbox.
 
 **What stays on your Mac**: iMessage/Gmail content, Redis `private:*` zone,
 LLM drafts, Gmail refresh token. **What crosses to the public plane**: only
-typed `PublicArtifactView` rows — no raw bodies, no emails, no phone numbers.
+typed views registered in `PROJECTION_REGISTRY` — no raw bodies, no emails,
+no phone numbers.
 
 ---
 
