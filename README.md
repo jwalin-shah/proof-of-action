@@ -158,6 +158,10 @@ We are careful about what we claim. Two honest boundaries:
 
 ## Architecture
 
+Repo-local agent and domain notes live in `AGENTS.md` and `CONTEXT.md`. Start
+there before changing boundary vocabulary, projection registry behavior, or
+validation commands.
+
 ```
 YOUR MAC (trust root)                 HOSTED PUBLIC FACE               PUBLIC WEB
 ─────────────────────                 ─────────────────                ──────────
