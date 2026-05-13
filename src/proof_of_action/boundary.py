@@ -7,18 +7,51 @@ from __future__ import annotations
 
 import hashlib
 import os
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from types import MappingProxyType
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
 Sensitivity = Literal["private", "public"]
+TargetPlane = Literal["cited_artifact", "openhuman", "vapi_voice"]
+VerifierPolicy = Literal["hash_refs_only", "tts_safe_script"]
 
 # Per-deployment pepper mixed into every content_hash. Without this, the
 # sha256 refs in cited.md would be vulnerable to dictionary/rainbow attacks
 # since thread bodies or emails are often low-entropy. The pepper is never
 # published; it stays on the operator's machine.
 HASH_PEPPER = os.environ.get("HASH_PEPPER", "dev-pepper-change-me")
+
+
+@dataclass(frozen=True)
+class ProjectionSpec:
+    """Public projection contract for one boundary-crossing view."""
+
+    view_name: str
+    source_sensitivity: Sensitivity
+    target_plane: TargetPlane
+    allowed_fields: frozenset[str]
+    verifier_policy: VerifierPolicy
+
+
+_PROJECTION_REGISTRY: dict[str, ProjectionSpec] = {}
+PROJECTION_REGISTRY = MappingProxyType(_PROJECTION_REGISTRY)
+
+
+def _register_projection(spec: ProjectionSpec) -> None:
+    if spec.view_name in _PROJECTION_REGISTRY:
+        raise ValueError(f"duplicate projection registration: {spec.view_name}")
+    _PROJECTION_REGISTRY[spec.view_name] = spec
+
+
+def projection_spec(view_type: type[BaseModel] | str) -> ProjectionSpec:
+    name = view_type if isinstance(view_type, str) else view_type.__name__
+    try:
+        return _PROJECTION_REGISTRY[name]
+    except KeyError as exc:
+        raise KeyError(f"unregistered projection view: {name}") from exc
 
 
 class PrivateContext(BaseModel):
@@ -58,7 +91,7 @@ class VapiView(BaseModel):
 
     action_id: str
     topic_label: str = Field(
-        description="Redacted label: 'a professional follow-up', 'a personal reply'"
+        description="Uniform redacted label; do not disclose semantic categories"
     )
     script: str = Field(description="Exact phrase the voice agent will read")
 
@@ -123,6 +156,35 @@ class PublicArtifactView(BaseModel):
             public_refs=public_urls,
             status=status,
         )
+
+
+_register_projection(
+    ProjectionSpec(
+        view_name=VapiView.__name__,
+        source_sensitivity="private",
+        target_plane="vapi_voice",
+        allowed_fields=frozenset(VapiView.model_fields),
+        verifier_policy="tts_safe_script",
+    )
+)
+_register_projection(
+    ProjectionSpec(
+        view_name=OpenhumanView.__name__,
+        source_sensitivity="private",
+        target_plane="openhuman",
+        allowed_fields=frozenset(OpenhumanView.model_fields),
+        verifier_policy="hash_refs_only",
+    )
+)
+_register_projection(
+    ProjectionSpec(
+        view_name=PublicArtifactView.__name__,
+        source_sensitivity="private",
+        target_plane="cited_artifact",
+        allowed_fields=frozenset(PublicArtifactView.model_fields),
+        verifier_policy="hash_refs_only",
+    )
+)
 
 
 def redact_for_llm(ctx: PrivateContext) -> dict:
