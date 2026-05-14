@@ -90,3 +90,48 @@ push.
 ## Handoff
 
 Pending PR.
+
+---
+
+# WP-066 Workpad
+
+## Task
+
+- Objective: Deepen one shallow module by moving scattered caller knowledge
+  behind a smaller interface.
+- Branch: `codex/WP-066-shallow-module-deepening`
+- Owned surface: `src/proof_of_action/boundary_verifier.py`,
+  `src/proof_of_action/agent.py`, and `tests/test_agent.py`.
+
+## Change
+
+- Added `BoundaryCrossing` as the boundary verifier's module-owned description
+  of a public/private crossing.
+- Changed `BoundaryVerifier.verify` to accept one `BoundaryCrossing` instead of
+  repeated caller flags and ordered inputs.
+- Updated agent orchestration and focused tests to use
+  `BoundaryCrossing.public_artifact(...)`, so action id, projection type, and
+  default step are derived inside `boundary_verifier.py`.
+
+## Validation
+
+```bash
+uv run --python 3.11 --extra dev pytest tests/test_agent.py tests/test_projection_registry.py -q
+```
+
+Result: passed, 10 passed.
+
+```bash
+uv run --python 3.11 --extra dev ruff check . && bash scripts/check.sh && git diff --check
+```
+
+Result: passed. `scripts/check.sh` ran service-backed Redis privacy boundary
+tests, canonical dashboard lint, and canonical dashboard build.
+
+## Residual Risk
+
+- `BoundaryCrossing.public_artifact(...)` covers the currently exercised
+  `PublicArtifactView` crossing only. The existing `ProjectionType` literals for
+  `OpenhumanView` and `VapiView` remain unchanged, but they do not yet have
+  dedicated verifier constructors because no direct verifier caller currently
+  sends those views.

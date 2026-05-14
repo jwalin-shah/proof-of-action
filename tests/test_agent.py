@@ -8,6 +8,7 @@ import pytest
 from proof_of_action import agent
 from proof_of_action.boundary import PrivateContext, PrivateDraft, PublicArtifactView
 from proof_of_action.boundary_verifier import (
+    BoundaryCrossing,
     BoundaryVerificationError,
     SharedBoundaryVerifier,
 )
@@ -58,13 +59,12 @@ def test_boundary_verifier_rejects_leaky_public_projection() -> None:
     verifier = SharedBoundaryVerifier()
     with pytest.raises(BoundaryVerificationError, match="public projection leaks"):
         verifier.verify(
-            step="project_view",
-            action_id=draft.action_id,
-            projection_type="PublicArtifactView",
-            topic_label="a follow-up",
-            private_contexts=[ctx],
-            private_drafts=[draft],
-            public_view=view,
+            BoundaryCrossing.public_artifact(
+                topic_label="a follow-up",
+                private_contexts=[ctx],
+                private_drafts=[draft],
+                public_view=view,
+            )
         )
 
 
@@ -82,16 +82,17 @@ def test_shared_verifier_counts_are_stable_for_clean_projection() -> None:
     )
 
     verification = SharedBoundaryVerifier().verify(
-        step="project_view",
-        action_id=draft.action_id,
-        projection_type="PublicArtifactView",
-        topic_label="a follow-up",
-        private_contexts=[ctx],
-        private_drafts=[draft],
-        public_view=view,
+        BoundaryCrossing.public_artifact(
+            topic_label="a follow-up",
+            private_contexts=[ctx],
+            private_drafts=[draft],
+            public_view=view,
+        )
     )
 
     assert verification.step == "project_view"
+    assert verification.action_id == view.action_id
+    assert verification.projection_type == "PublicArtifactView"
     assert verification.private_field_count == (
         len(ctx.body.split()) + len(ctx.participants) + len(draft.body.split())
     )
@@ -100,17 +101,7 @@ def test_shared_verifier_counts_are_stable_for_clean_projection() -> None:
 
 
 class _FailingVerifier:
-    def verify(
-        self,
-        *,  # pragma: no cover
-        step: str,
-        action_id: str,
-        projection_type: str,
-        topic_label: str,
-        private_contexts: list[PrivateContext],
-        private_drafts: list[PrivateDraft],
-        public_view: PublicArtifactView,
-    ) -> None:
+    def verify(self, crossing: BoundaryCrossing) -> None:
         raise BoundaryVerificationError("forced verifier failure")
 
 
