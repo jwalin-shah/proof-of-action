@@ -47,47 +47,62 @@ class BoundaryVerification:
         }
 
 
-class BoundaryVerifier(Protocol):
-    """Contract for boundary-audit status verifiers."""
+@dataclass(frozen=True)
+class BoundaryCrossing:
+    """Inputs that define one public/private boundary crossing."""
 
-    def verify(
-        self,
+    step: str
+    action_id: str
+    projection_type: ProjectionType
+    topic_label: str
+    private_contexts: tuple[PrivateContext, ...]
+    private_drafts: tuple[PrivateDraft, ...]
+    public_view: PublicArtifactView
+
+    @classmethod
+    def public_artifact(
+        cls,
         *,
-        step: str,
-        action_id: str,
-        projection_type: ProjectionType,
         topic_label: str,
         private_contexts: Iterable[PrivateContext],
         private_drafts: Iterable[PrivateDraft],
         public_view: PublicArtifactView,
-    ) -> BoundaryVerification: ...
+        step: str = "project_view",
+    ) -> "BoundaryCrossing":
+        return cls(
+            step=step,
+            action_id=public_view.action_id,
+            projection_type="PublicArtifactView",
+            topic_label=topic_label,
+            private_contexts=tuple(private_contexts),
+            private_drafts=tuple(private_drafts),
+            public_view=public_view,
+        )
+
+
+class BoundaryVerifier(Protocol):
+    """Contract for boundary-audit status verifiers."""
+
+    def verify(self, crossing: BoundaryCrossing) -> BoundaryVerification: ...
 
 
 class SharedBoundaryVerifier:
     """Project verification shared by agent orchestration and tests."""
 
-    def verify(
-        self,
-        *,
-        step: str,
-        action_id: str,
-        projection_type: ProjectionType,
-        topic_label: str,
-        private_contexts: Iterable[PrivateContext],
-        private_drafts: Iterable[PrivateDraft],
-        public_view: PublicArtifactView,
-    ) -> BoundaryVerification:
-        private_contexts_list = list(private_contexts)
-        private_drafts_list = list(private_drafts)
-
+    def verify(self, crossing: BoundaryCrossing) -> BoundaryVerification:
         private_field_count = sum(
-            len(ctx.body.split()) + len(ctx.participants) for ctx in private_contexts_list
-        ) + sum(len(d.body.split()) for d in private_drafts_list)
+            len(ctx.body.split()) + len(ctx.participants)
+            for ctx in crossing.private_contexts
+        ) + sum(len(d.body.split()) for d in crossing.private_drafts)
 
-        public_field_count = len(public_view.private_refs) + len(public_view.public_refs)
+        public_field_count = (
+            len(crossing.public_view.private_refs) + len(crossing.public_view.public_refs)
+        )
 
-        fingerprints = private_fingerprints(private_contexts_list, private_drafts_list)
-        serialized = public_view.model_dump_json()
+        fingerprints = private_fingerprints(
+            crossing.private_contexts, crossing.private_drafts
+        )
+        serialized = crossing.public_view.model_dump_json()
         contains_private_body = any(fp in serialized for fp in fingerprints)
         leak_check_passed = not contains_private_body
 
@@ -97,10 +112,10 @@ class SharedBoundaryVerifier:
             )
 
         return BoundaryVerification(
-            step=step,
-            action_id=action_id,
-            projection_type=projection_type,
-            topic_label=topic_label,
+            step=crossing.step,
+            action_id=crossing.action_id,
+            projection_type=crossing.projection_type,
+            topic_label=crossing.topic_label,
             private_field_count=private_field_count,
             public_field_count=public_field_count,
             contains_private_body=contains_private_body,

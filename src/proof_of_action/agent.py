@@ -20,10 +20,10 @@ from proof_of_action.boundary import (
 )
 from proof_of_action import guild_audit
 from proof_of_action.boundary_verifier import (
+    BoundaryCrossing,
     BoundaryVerification,
     BoundaryVerificationError,
     BoundaryVerifier,
-    ProjectionType,
     SharedBoundaryVerifier,
 )
 from proof_of_action.stores import insforge_publish, private_store, public_store
@@ -129,16 +129,14 @@ def run_audit(
     verifier: BoundaryVerifier,
     drafted: DraftedContext,
     view: PublicArtifactView,
-    projection_type: ProjectionType = "PublicArtifactView",
 ) -> BoundaryVerification:
     return verifier.verify(
-        step="project_view",
-        action_id=drafted.draft.action_id,
-        projection_type=projection_type,
-        topic_label=drafted.topic_label,
-        private_contexts=[drafted.picked],
-        private_drafts=[drafted.draft],
-        public_view=view,
+        BoundaryCrossing.public_artifact(
+            topic_label=drafted.topic_label,
+            private_contexts=[drafted.picked],
+            private_drafts=[drafted.draft],
+            public_view=view,
+        )
     )
 
 
