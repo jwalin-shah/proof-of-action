@@ -21,17 +21,45 @@ from proof_of_action.boundary import PrivateContext
 from proof_of_action.stores import private_store
 
 
+class IngestValidationError(ValueError):
+    """Raised when an input row cannot safely become PrivateContext."""
+
+
+def _required_string(row: dict, field: str) -> str:
+    value = row.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise IngestValidationError(f"field {field!r} must be a non-empty string")
+    return value
+
+
 def _parse(row: dict) -> PrivateContext:
+    sender = row.get("from") or row.get("from_email")
+    if not isinstance(sender, str) or not sender.strip():
+        raise IngestValidationError(
+            "field 'from' or 'from_email' must be a non-empty string"
+        )
+    participants = row.get("participants", [])
+    if not isinstance(participants, list) or not all(
+        isinstance(participant, str) for participant in participants
+    ):
+        raise IngestValidationError("field 'participants' must be a list of strings")
+    try:
+        last_message_at = datetime.fromisoformat(
+            _required_string(row, "last_message_at").replace("Z", "+00:00")
+        )
+    except ValueError as exc:
+        raise IngestValidationError(
+            "field 'last_message_at' must be an ISO-8601 datetime"
+        ) from exc
+
     return PrivateContext(
-        thread_id=row["thread_id"],
-        subject=row["subject"],
-        from_email=row.get("from") or row.get("from_email", ""),
+        thread_id=_required_string(row, "thread_id"),
+        subject=_required_string(row, "subject"),
+        from_email=sender,
         from_name=row.get("from_name", ""),
         body=row.get("body", ""),
-        participants=row.get("participants", []),
-        last_message_at=datetime.fromisoformat(
-            row["last_message_at"].replace("Z", "+00:00")
-        ),
+        participants=participants,
+        last_message_at=last_message_at,
     )
 
 
@@ -40,15 +68,32 @@ def main(path: str) -> int:
     if not p.exists():
         print(f"[ingest] no such file: {path}", file=sys.stderr)
         return 1
-    rows = json.loads(p.read_text())
+    try:
+        rows = json.loads(p.read_text())
+    except json.JSONDecodeError as exc:
+        print(f"[ingest] invalid JSON: {exc.msg}", file=sys.stderr)
+        return 2
     if not isinstance(rows, list):
         print("[ingest] expected a JSON array of thread records", file=sys.stderr)
         return 2
-    for row in rows:
-        ctx = _parse(row)
+    contexts: list[PrivateContext] = []
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            print(
+                f"[ingest] row {index} must be a thread record object",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            ctx = _parse(row)
+        except IngestValidationError as exc:
+            print(f"[ingest] row {index}: {exc}", file=sys.stderr)
+            return 2
+        contexts.append(ctx)
+    for ctx in contexts:
         private_store.save_thread(ctx)
         print(f"[private] ingested {ctx.thread_id} ({ctx.content_hash()})")
-    print(f"[private] total {len(rows)} threads in private:thread:*")
+    print(f"[private] total {len(contexts)} threads in private:thread:*")
     print("[ingest] source stays local — no data crossed the boundary")
     return 0
 
