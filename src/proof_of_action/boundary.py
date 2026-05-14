@@ -23,6 +23,7 @@ VerifierPolicy = Literal["hash_refs_only", "tts_safe_script"]
 # since thread bodies or emails are often low-entropy. The pepper is never
 # published; it stays on the operator's machine.
 HASH_PEPPER = os.environ.get("HASH_PEPPER", "dev-pepper-change-me")
+PUBLIC_TOPIC_LABEL = "a follow-up"
 
 
 @dataclass(frozen=True)
@@ -97,11 +98,12 @@ class VapiView(BaseModel):
 
     @classmethod
     def project(cls, draft: PrivateDraft, topic_label: str) -> "VapiView":
+        safe_topic_label = PUBLIC_TOPIC_LABEL
         return cls(
             action_id=draft.action_id,
-            topic_label=topic_label,
+            topic_label=safe_topic_label,
             script=(
-                f"Hello. A draft for {topic_label} is ready for your review. "
+                f"Hello. A draft for {safe_topic_label} is ready for your review. "
                 f"Reference {draft.action_id}. This message contains no private content."
             ),
         )
@@ -210,4 +212,4 @@ def topic_label_for(ctx: PrivateContext) -> str:
     collapse to a single uniform label. If you ever need a richer label,
     emit it only to the private side — never to a public projection.
     """
-    return "a follow-up"
+    return PUBLIC_TOPIC_LABEL
