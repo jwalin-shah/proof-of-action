@@ -16,7 +16,7 @@ import httpx
 
 from proof_of_action.stores import public_store
 
-OUT = Path("artifacts/cited.md")
+DEFAULT_OUT = Path("artifacts/runtime/cited.md")
 
 
 def _load_env_local() -> None:
@@ -32,6 +32,7 @@ def _load_env_local() -> None:
 
 
 _load_env_local()
+OUT = Path(os.environ.get("POA_CITED_PATH", str(DEFAULT_OUT)))
 INSFORGE_URL = os.environ.get("INSFORGE_PROJECT_URL")
 INSFORGE_KEY = os.environ.get("INSFORGE_ACCESS_KEY")
 INSFORGE_TABLE = os.environ.get("INSFORGE_TABLE", "proof_actions")

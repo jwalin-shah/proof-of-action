@@ -1,8 +1,10 @@
 """Smoke contract for the package CLI entrypoint."""
 from __future__ import annotations
 
+import importlib
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 
@@ -45,3 +47,17 @@ def test_agent_cli_bad_input_reports_clear_failure() -> None:
 
     assert result.returncode == 2
     assert "unrecognized arguments: --definitely-not-real" in result.stderr
+
+
+def test_publish_default_writes_to_ignored_runtime_path(monkeypatch, tmp_path) -> None:
+    monkeypatch.delenv("POA_CITED_PATH", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    from scripts import publish
+
+    publish = importlib.reload(publish)
+    repo_root = Path(__file__).resolve().parent.parent
+
+    assert publish.DEFAULT_OUT == Path("artifacts/runtime/cited.md")
+    assert publish.OUT == publish.DEFAULT_OUT
+    assert "artifacts/runtime/" in (repo_root / ".gitignore").read_text()

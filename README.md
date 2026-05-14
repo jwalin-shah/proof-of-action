@@ -232,7 +232,7 @@ cp .env.local.example .env.local    # then fill in ANTHROPIC_API_KEY
 python scripts/demo.py
 ```
 
-The demo prints every boundary crossing, writes `artifacts/cited.md`,
+The demo prints every boundary crossing, writes `artifacts/runtime/cited.md`,
 uploads to Insforge, and ends with the leak test — which scans 100+
 PII fingerprints from the fixture against the generated artifact.
 
@@ -266,7 +266,9 @@ tests/
   test_boundary.py     ← leak test + ACL enforcement test
 
 Dockerfile             ← Chainguard Python base, for the hosted public face
-artifacts/cited.md     ← generated public proof (committed after each run)
+fixtures/*.json        ← small deterministic private-context fixtures
+artifacts/cited.md     ← preserved reference public proof, not a runtime target
+artifacts/runtime/     ← ignored local cited.md output from current runs
 private/               ← gitignored; never committed
 ```
 
@@ -307,7 +309,7 @@ two-user ACL with `scripts/setup_redis.sh` before running the boundary tests.
 fps = private_fingerprints(fixture_contexts, generated_drafts)
 # 131 fingerprints captured: names, first-names, email handles, phones,
 #   URLs, subject lines, and all 3-grams from bodies
-leaks = scan_for_leaks(open("artifacts/cited.md").read(), fps)
+leaks = scan_for_leaks(generated_cited_md, fps)
 assert not leaks, f"BOUNDARY BROKEN: {leaks}"
 ```
 

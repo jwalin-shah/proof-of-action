@@ -64,7 +64,7 @@ def main() -> int:
     )
 
     banner("DONE")
-    print("  Public artifact: artifacts/cited.md")
+    print(f"  Public artifact: {publish.OUT}")
     print("  Private artifacts: private/ (gitignored) + redis private:* (ACL'd)")
     return r.returncode
 
