@@ -5,16 +5,11 @@ If this test ever fails, the boundary broke.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import redis
 
 from proof_of_action import agent
 from proof_of_action.redaction import private_fingerprints, scan_for_leaks
-
-
-CITED = Path("artifacts/cited.md")
 
 
 def require_redis_boundary() -> None:

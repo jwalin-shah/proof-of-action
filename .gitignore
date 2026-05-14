@@ -2,6 +2,7 @@
 private/
 artifacts/private_*.md
 artifacts/*.log
+artifacts/runtime/
 artifacts/human_review/
 .env
 *.key
@@ -13,6 +14,7 @@ __pycache__/
 *$py.class
 .venv/
 venv/
+uv.lock
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
