@@ -22,7 +22,7 @@ def require_redis_boundary() -> None:
 
     try:
         redis.Redis(host="localhost", port=PORT).ping()
-    except redis.ConnectionError as exc:
+    except redis.ConnectionError:
         pytest.skip(
             f"Redis boundary service unavailable on localhost:{PORT}; "
             "run scripts/check.sh or scripts/onboard.sh for service-backed validation."
