@@ -43,18 +43,6 @@ jobs:
       - name: Lint Python
         run: uv run --python 3.11 --extra dev ruff check .
 
-      - name: Run privacy boundary, leak, ACL, and crypto tests
-        run: uv run --python 3.11 --extra dev pytest tests/test_boundary.py tests/test_crypto.py -q
-
-  canonical-dashboard:
-    name: Canonical dashboard lint and build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: deploy/dashboard
-    steps:
-      - uses: actions/checkout@v4
-
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -62,11 +50,5 @@ jobs:
           cache: npm
           cache-dependency-path: deploy/dashboard/package-lock.json
 
-      - name: Install dashboard dependencies
-        run: npm ci
-
-      - name: Lint canonical dashboard
-        run: npm run lint
-
-      - name: Build canonical dashboard
-        run: npm run build
+      - name: Run local validation gate
+        run: bash scripts/check.sh
