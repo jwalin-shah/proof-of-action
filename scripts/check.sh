@@ -24,10 +24,13 @@ require_cmd() {
 require_cmd uv
 require_cmd npm
 
+echo "Running no-service CLI smoke tests..."
+uv run --python 3.11 --extra dev pytest tests/test_cli_smoke.py -q
+
 if ! command -v redis-cli >/dev/null 2>&1 || ! command -v redis-server >/dev/null 2>&1; then
   echo "redis-cli and redis-server are required for service-backed validation." >&2
   echo "Install Redis, or run the no-service subset:" >&2
-  echo "  PYTHONPATH=src python3 -m pytest tests/test_agent.py tests/test_crypto.py" >&2
+  echo "  PYTHONPATH=src python3 -m pytest tests/test_cli_smoke.py tests/test_agent.py tests/test_crypto.py" >&2
   exit 1
 fi
 
