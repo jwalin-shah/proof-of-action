@@ -4,11 +4,13 @@ observe → classify → draft → project → audit → publish (typed use-case
 """
 from __future__ import annotations
 
+import argparse
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import os
 from pathlib import Path
+import sys
 
 from proof_of_action.actions import draft as draft_mod
 from proof_of_action.actions import human_review
@@ -256,5 +258,37 @@ def run(*, verifier: BoundaryVerifier | None = None) -> dict:
     }
 
 
+def _smoke() -> dict:
+    return {
+        "status": "ok",
+        "entrypoint": "proof_of_action.agent",
+        "source": SOURCE,
+        "fixture": str(FIXTURE),
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="python -m proof_of_action.agent",
+        description="Run the local Proof-of-Action agent loop.",
+    )
+    parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="validate CLI imports and argument parsing without services or secrets",
+    )
+    args = parser.parse_args(argv)
+
+    if args.smoke:
+        print(json.dumps(_smoke(), sort_keys=True))
+        return 0
+
+    result = run()
+    if result.get("status", "").endswith("_failed"):
+        print(json.dumps(result, sort_keys=True), file=sys.stderr)
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
-    run()
+    raise SystemExit(main())
