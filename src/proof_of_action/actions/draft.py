@@ -28,7 +28,6 @@ import uuid
 from datetime import datetime, timezone
 
 import httpx
-from anthropic import Anthropic
 
 from proof_of_action.boundary import (
     PrivateContext,
@@ -40,6 +39,14 @@ from proof_of_action.stores import private_store
 MODEL = "claude-sonnet-4-6"
 OLLAMA_MODEL = os.environ.get("POA_OLLAMA_MODEL", "llama3.1:8b")
 OLLAMA_URL = os.environ.get("POA_OLLAMA_URL", "")
+
+
+def _create_anthropic_client(api_key: str | None):
+    try:
+        from anthropic import Anthropic
+    except ImportError as exc:
+        raise RuntimeError("Install the anthropic dependency to use POA_LLM=anthropic.") from exc
+    return Anthropic(api_key=api_key)
 
 
 def _draft_via_ollama(redacted: dict) -> tuple[str, str, str]:
@@ -151,7 +158,7 @@ def draft_reply(ctx: PrivateContext) -> PrivateDraft:
     if backend == "ollama":
         body, model_used, tcb_label = _draft_via_ollama(redacted)
     elif backend == "anthropic":
-        client = Anthropic(api_key=key)
+        client = _create_anthropic_client(api_key=key)
         resp = client.messages.create(
             model=MODEL,
             max_tokens=400,

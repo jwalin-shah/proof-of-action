@@ -7,6 +7,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+import redis
+
 from proof_of_action import agent
 from proof_of_action.redaction import private_fingerprints, scan_for_leaks
 
@@ -14,7 +17,21 @@ from proof_of_action.redaction import private_fingerprints, scan_for_leaks
 CITED = Path("artifacts/cited.md")
 
 
+def require_redis_boundary() -> None:
+    from proof_of_action.stores.public_store import PORT
+
+    try:
+        redis.Redis(host="localhost", port=PORT).ping()
+    except redis.ConnectionError:
+        pytest.skip(
+            f"Redis boundary service unavailable on localhost:{PORT}; "
+            "run scripts/check.sh or scripts/onboard.sh for service-backed validation."
+        )
+
+
 def test_public_artifact_contains_no_private_content(monkeypatch):
+    require_redis_boundary()
+
     result = agent.run()
     assert result["status"] in ("published", "noop")
 
@@ -37,9 +54,10 @@ def test_public_artifact_contains_no_private_content(monkeypatch):
 
 
 def test_acl_blocks_private_write_via_public_client():
+    require_redis_boundary()
+
     from proof_of_action.stores.public_store import client
     pub = client()
-    import redis
     try:
         pub.set("private:sneaky", "should_fail")
         raise AssertionError("Expected NOPERM, write succeeded")
