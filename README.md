@@ -285,18 +285,19 @@ README and CI are updated in the same change.
 
 ## Required validation
 
-PRs must pass the `Boundary CI` workflow:
+Before PR handoff, run the local validation gate:
 
 ```bash
-uv run --python 3.11 --extra dev ruff check .
-POA_LLM=template POA_MASTER_KEY=1111111111111111111111111111111111111111111111111111111111111111 \
-  REDIS_PORT=6390 uv run --python 3.11 --extra dev pytest tests/test_boundary.py tests/test_crypto.py -q
-cd deploy/dashboard && npm ci && npm run lint && npm run build
+uv run --python 3.11 --extra dev ruff check . && bash scripts/check.sh
 ```
 
-The Python boundary test requires Redis with the two-user ACL configured by
-`scripts/setup_redis.sh`; CI starts Redis and configures the ACL before running
-the test.
+This is the same executable gate used by `Boundary CI`: Python lint, the
+Chainguard base digest drift check, service-backed Redis ACL privacy boundary
+tests, crypto tests, and the canonical hosted dashboard install, lint, and
+production build.
+
+`scripts/check.sh` starts Redis on `REDIS_PORT` when needed and configures the
+two-user ACL with `scripts/setup_redis.sh` before running the boundary tests.
 
 ---
 
