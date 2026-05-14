@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from proof_of_action.boundary import (
     OpenhumanView,
+    PrivateDraft,
     PROJECTION_REGISTRY,
     PublicArtifactView,
     VapiView,
@@ -51,3 +54,19 @@ def test_projection_registry_is_read_only_and_rejects_duplicates():
         raise AssertionError("duplicate registration should fail")
     except ValueError as exc:
         assert "duplicate projection registration" in str(exc)
+
+
+def test_vapi_projection_normalizes_caller_supplied_topic_label():
+    draft = PrivateDraft(
+        action_id="act_001",
+        thread_id="thread_001",
+        body="Private draft about the Acme acquisition timing.",
+        model="test",
+        generated_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+    )
+
+    view = VapiView.project(draft, "Acme acquisition timing")
+
+    assert view.topic_label == "a follow-up"
+    assert "Acme acquisition" not in view.script
+    assert "a follow-up" in view.script
