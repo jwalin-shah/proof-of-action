@@ -16,7 +16,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    refresh()
+    void Promise.resolve().then(refresh)
   }, [refresh])
 
   if (loading) {

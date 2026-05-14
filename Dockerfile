@@ -4,8 +4,8 @@
 # Phase G1: multi-stage (builder venv copied into runtime stage).
 # Phase G2: bases pinned by digest. Mirrored in .chainguard-digest so CI and
 # cited.md can cite the exact image hash. Refresh with scripts/pin-chainguard.sh.
-ARG BUILDER_BASE=cgr.dev/chainguard/python:latest-dev@sha256:fa87f75b8264236dd8e544e0eed8e88b447ac3b467966d3e6ab6b9cde9c2d4bc
-ARG RUNTIME_BASE=cgr.dev/chainguard/python:latest@sha256:66aee22f77df8621d0049ade8cd6cf383d26fd9f4247ec301d191aa417c78df1
+ARG BUILDER_BASE=cgr.dev/chainguard/python:latest-dev@sha256:e2c6edb2eda713219a9a1ba5db7ca0b8bb3ac0a68068956edb85421026dfffdd
+ARG RUNTIME_BASE=cgr.dev/chainguard/python:latest@sha256:e4838943e7ed886c221cdd1e9a6914e0d3c5f0b0c238a419db66e6b1b4b0f93e
 
 # ─── builder ────────────────────────────────────────────────────────────
 FROM ${BUILDER_BASE} AS builder

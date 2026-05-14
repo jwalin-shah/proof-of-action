@@ -110,7 +110,8 @@ operator's own inbox.
 
 **What stays on your Mac**: iMessage/Gmail content, Redis `private:*` zone,
 LLM drafts, Gmail refresh token. **What crosses to the public plane**: only
-typed `PublicArtifactView` rows — no raw bodies, no emails, no phone numbers.
+typed views registered in `PROJECTION_REGISTRY` — no raw bodies, no emails,
+no phone numbers.
 
 ---
 
@@ -157,6 +158,10 @@ We are careful about what we claim. Two honest boundaries:
 ---
 
 ## Architecture
+
+Repo-local agent and domain notes live in `AGENTS.md` and `CONTEXT.md`. Start
+there before changing boundary vocabulary, projection registry behavior, or
+validation commands.
 
 ```
 YOUR MAC (trust root)                 HOSTED PUBLIC FACE               PUBLIC WEB
@@ -255,6 +260,7 @@ scripts/
 
 deploy/
   akash-public-workers.yaml  ← SDL for the hosted public face
+  dashboard/                 ← canonical hosted dashboard checked by CI
 
 tests/
   test_boundary.py     ← leak test + ACL enforcement test
@@ -263,6 +269,34 @@ Dockerfile             ← Chainguard Python base, for the hosted public face
 artifacts/cited.md     ← generated public proof (committed after each run)
 private/               ← gitignored; never committed
 ```
+
+---
+
+## Dashboard surface
+
+`deploy/dashboard/` is the canonical hosted dashboard for PR validation and
+deploys. CI runs its lint and production build on every PR.
+
+`dashboard/` is a legacy/local prototype kept for reference while the hosted
+surface stabilizes. Do not treat it as the deployment target unless this
+README and CI are updated in the same change.
+
+---
+
+## Required validation
+
+PRs must pass the `Boundary CI` workflow:
+
+```bash
+uv run --python 3.11 --extra dev ruff check .
+POA_LLM=template POA_MASTER_KEY=1111111111111111111111111111111111111111111111111111111111111111 \
+  REDIS_PORT=6390 uv run --python 3.11 --extra dev pytest tests/test_boundary.py tests/test_crypto.py -q
+cd deploy/dashboard && npm ci && npm run lint && npm run build
+```
+
+The Python boundary test requires Redis with the two-user ACL configured by
+`scripts/setup_redis.sh`; CI starts Redis and configures the ACL before running
+the test.
 
 ---
 
