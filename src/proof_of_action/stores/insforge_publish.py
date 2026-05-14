@@ -111,7 +111,7 @@ def publish_to_insforge(
         "crossing": {
             "projection_type": projection_type,
             "private_field_count": private_field_count,
-            "public_field_count": len(view.public_refs) + len(view.private_refs),
+            "public_field_count": view.boundary_reference_count(),
             "leak_check_passed": leak_check_passed,
         },
     }

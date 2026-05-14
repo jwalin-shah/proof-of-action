@@ -77,7 +77,7 @@ def test_shared_verifier_counts_are_stable_for_clean_projection() -> None:
         status="pending_review",
         private_contexts=[ctx],
         private_drafts=[draft],
-        public_urls=[],
+        public_urls=[{"kind": "runbook", "url": "https://example.test/runbook"}],
         when=datetime(2026, 1, 2, tzinfo=timezone.utc),
     )
 
@@ -96,7 +96,7 @@ def test_shared_verifier_counts_are_stable_for_clean_projection() -> None:
     assert verification.private_field_count == (
         len(ctx.body.split()) + len(ctx.participants) + len(draft.body.split())
     )
-    assert verification.public_field_count == len(view.private_refs)
+    assert verification.public_field_count == view.boundary_reference_count()
     assert verification.leak_check_passed is True
 
 

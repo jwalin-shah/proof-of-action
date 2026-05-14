@@ -133,6 +133,10 @@ class PublicArtifactView(BaseModel):
     public_refs: list[dict]
     status: str
 
+    def boundary_reference_count(self) -> int:
+        """Count public-plane refs, including peppered private hash refs."""
+        return len(self.private_refs) + len(self.public_refs)
+
     @classmethod
     def project(
         cls,

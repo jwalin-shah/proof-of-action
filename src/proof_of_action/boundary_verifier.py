@@ -95,9 +95,7 @@ class SharedBoundaryVerifier:
             for ctx in crossing.private_contexts
         ) + sum(len(d.body.split()) for d in crossing.private_drafts)
 
-        public_field_count = (
-            len(crossing.public_view.private_refs) + len(crossing.public_view.public_refs)
-        )
+        public_field_count = crossing.public_view.boundary_reference_count()
 
         fingerprints = private_fingerprints(
             crossing.private_contexts, crossing.private_drafts
